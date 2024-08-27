@@ -140,6 +140,11 @@ class ResolvedType {
     return c.decode(this.encoding, value)
   }
 
+  generate () {
+    if (this.primitive) return
+    this._preprocessEncoding()
+  }
+
   static fromDescription (hyperschema, description) {
     if (description.alias) return hyperschema.resolve(description.alias)
     const fields = []
@@ -170,6 +175,7 @@ class HyperschemaNamespace {
     this.name = name
     this.types = new Map()
     this._ordered = []
+    this._orderedTypes = []
   }
 
   _getFullyQualifiedName (name) {
@@ -178,11 +184,13 @@ class HyperschemaNamespace {
 
   register (definition) {
     if (this.types.has(definition.name)) throw new Error('Duplicate type definition')
-    const resolved = ResolvedType.fromDescription(this.hyperschema, definition)
+    const type = ResolvedType.fromDescription(this.hyperschema, definition)
 
-    this.hyperschema.fullyQualifiedTypes.set(this._getFullyQualifiedName(definition.name), resolved)
-    this.types.set(resolved.name, resolved)
+    const fqn = this._getFullyQualifiedName(definition.name)
+    this.hyperschema.fullyQualifiedTypes.set(fqn, type)
+    this.types.set(type.name, type)
 
+    this._orderedTypes.push({ name: fqn, type })
     this._ordered.push(definition)
   }
 }
@@ -217,6 +225,17 @@ module.exports = class Hyperschema {
   decode (type, value) {
     const resolved = this.fullyQualifiedTypes.get(type)
     return resolved.decode(value)
+  }
+
+  listTypes () {
+    const types = []
+    for (const namespaceName of this._ordered) {
+      const namespace = this.namespaces.get(namespaceName)
+      for (const { name, type } of namespace._orderedTypes) {
+        types.push({ name, type })
+      }
+    }
+    return types
   }
 
   toJSON (opts) {

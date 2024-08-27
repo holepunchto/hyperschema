@@ -2,11 +2,10 @@ const test = require('brittle')
 
 const Hyperschema = require('..')
 
-const createBasicSchema = require('./schemas/basic.js')
+const schema = require('./schemas/basic.js')
 
 test('basic persistence', t => {
-  const schema1 = createBasicSchema()
-  const json1 = schema1.toJSON()
+  const json1 = schema.toJSON()
 
   const schema2 = Hyperschema.fromJSON(json1)
   const json2 = schema2.toJSON()
@@ -15,15 +14,12 @@ test('basic persistence', t => {
 })
 
 test('basic encoding', t => {
-  const schema = createBasicSchema()
-
   {
     const expected = { bool1: true, bool2: false, bool3: true }
     const encoded = schema.encode('@namespace-1/basic-bools', expected)
     const decoded = schema.decode('@namespace-1/basic-bools', encoded)
     t.alike(decoded, expected)
   }
-
   {
     const expected = {
       id: 10,
