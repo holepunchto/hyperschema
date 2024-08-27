@@ -6,8 +6,9 @@ const {
 } = require('./lib/types.js')
 
 class ResolvedType {
-  constructor (hyperschema, name, { primitive, struct, compact, fields, positionMap }) {
+  constructor (hyperschema, name, fqn, { primitive, struct, compact, fields, positionMap }) {
     this.hyperschema = hyperschema
+    this.fqn = fqn
     this.name = name
     this.fields = fields
     this.positionMap = positionMap
@@ -34,7 +35,7 @@ class ResolvedType {
         throw new Error('Invalid primitive type: ' + this.name)
       }
     } else {
-      this._preprocessEncoding()
+      this.preprocessEncoding()
       this._encoding = {
         preencode: this._preencode.bind(this),
         encode: this._encode.bind(this),
@@ -45,7 +46,8 @@ class ResolvedType {
     return this._encoding
   }
 
-  _preprocessEncoding () {
+  preprocessEncoding () {
+    if (this._encodables) return
     this._encodables = new Array(this.fields.length)
     this._optionals = []
 
@@ -84,6 +86,7 @@ class ResolvedType {
         c.uint.preencode(state, flags)
       }
       const field = this._encodables[i]
+      console.log('preencoding field:', field)
       if (field.type.bool) continue
       const value = m[field.name]
       if (!value && field.optional) continue
@@ -142,10 +145,10 @@ class ResolvedType {
 
   generate () {
     if (this.primitive) return
-    this._preprocessEncoding()
+    this.preprocessEncoding()
   }
 
-  static fromDescription (hyperschema, description) {
+  static fromDescription (hyperschema, fqn, description) {
     if (description.alias) return hyperschema.resolve(description.alias)
     const fields = []
     const positionMap = new Map()
@@ -156,7 +159,7 @@ class ResolvedType {
       positionMap.set(field.name, position)
     }
 
-    return new this(hyperschema, description.name, {
+    return new this(hyperschema, description.name, fqn, {
       compact: description.compact,
       struct: true,
       positionMap,
@@ -165,7 +168,7 @@ class ResolvedType {
   }
 
   static PrimitiveResolvedTypes = new Map([...SupportedTypes].map(name => {
-    return [name, new this(null, name, { primitive: true })]
+    return [name, new this(null, name, name, { primitive: true })]
   }))
 }
 
@@ -184,9 +187,9 @@ class HyperschemaNamespace {
 
   register (definition) {
     if (this.types.has(definition.name)) throw new Error('Duplicate type definition')
-    const type = ResolvedType.fromDescription(this.hyperschema, definition)
-
     const fqn = this._getFullyQualifiedName(definition.name)
+    const type = ResolvedType.fromDescription(this.hyperschema, fqn, definition)
+
     this.hyperschema.fullyQualifiedTypes.set(fqn, type)
     this.types.set(type.name, type)
 

@@ -1,6 +1,6 @@
 const Hyperschema = require('../..')
 
-module.exports = schema = new Hyperschema()
+const schema = module.exports = new Hyperschema()
 
 const ns1 = schema.namespace('namespace-1')
 const ns2 = schema.namespace('namespace-2')
@@ -53,8 +53,17 @@ ns1.register({
   ]
 })
 
-/*
-ns1.register('basic-embedded-struct', {
-
+ns1.register({
+  name: 'basic-embedded-struct',
+  fields: [
+    {
+      name: 'outerString',
+      type: 'string',
+      required: true
+    },
+    {
+      name: 'embedded',
+      type: '@namespace-1/basic-struct'
+    }
+  ]
 })
-*/
