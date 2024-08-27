@@ -1,6 +1,6 @@
 const Hyperschema = require('../..')
 
-module.export = function create () {
+module.exports = function create () {
   const schema = new Hyperschema()
 
   const ns1 = schema.namespace('namespace-1')
@@ -8,7 +8,7 @@ module.export = function create () {
 
   ns2.register({
     name: 'basic-alias',
-    alias: 'fixed32'
+    alias: 'string'
   })
 
   ns1.register({
@@ -53,4 +53,12 @@ module.export = function create () {
       }
     ]
   })
+
+  /*
+  ns1.register('basic-embedded-struct', {
+
+  })
+  */
+
+  return schema
 }

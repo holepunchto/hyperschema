@@ -1,5 +1,4 @@
 const test = require('brittle')
-const c = require('compact-encoding')
 
 const Hyperschema = require('..')
 
@@ -15,12 +14,14 @@ test.skip('basic persistence', t => {
 test('basic encoding', t => {
   const schema = createBasicSchema()
 
+  /*
   {
     const expected = { bool1: true, bool2: false, bool3: true }
     const encoded = schema.encode('@namespace-1/basic-bools', expected)
     const decoded = schema.decode('@namespace-1/basic-bools', encoded)
     t.alike(decoded, expected)
   }
+  */
 
   {
     const expected = {

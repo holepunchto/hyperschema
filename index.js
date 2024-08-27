@@ -1,166 +1,234 @@
-const IndexEncoder = require('index-encoder')
 const c = require('compact-encoding')
 
-const SupportedTypes = new Set([
-  'uint', 'uint8', 'uint16', 'uint24', 'uint32', 'uint40', 'uint48', 'uint56', 'uint64',
-  'int', 'int8', 'int16', 'int24', 'int32', 'int40', 'int48', 'int56', 'int64',
-  'string', 'utf8', 'ascii', 'hex', 'base64',
-  'bigint', 'biguint64', 'bigint64',
-  'fixed32', 'fixed64',
-  'float32', 'float64',
-  'lexint',
-  'buffer',
-  'bool'
-])
-
-const IndexTypeMap = new Map([
-  ['uint', IndexEncoder.UINT],
-  ['uint8', IndexEncoder.UINT],
-  ['uint16', IndexEncoder.UINT],
-  ['uint24', IndexEncoder.UINT],
-  ['uint32', IndexEncoder.UINT],
-  ['uint40', IndexEncoder.UINT],
-  ['uint48', IndexEncoder.UINT],
-  ['uint56', IndexEncoder.UINT],
-  ['uint64', IndexEncoder.UINT],
-  ['string', IndexEncoder.STRING],
-  ['utf8', IndexEncoder.STRING],
-  ['ascii', IndexEncoder.STRING],
-  ['hex', IndexEncoder.STRING],
-  ['base64', IndexEncoder.STRING],
-  ['fixed32', IndexEncoder.BUFFER],
-  ['fixed64', IndexEncoder.BUFFER],
-  ['buffer', IndexEncoder.BUFFER]
-])
+const {
+  SupportedTypes,
+  getDefaultValue
+} = require('./lib/types.js')
 
 class ResolvedType {
-  constructor (hyperschema, { primitive, struct, bool, type, fields, positionMap }) {
+  constructor (hyperschema, name, { primitive, struct, compact, fields, positionMap }) {
     this.hyperschema = hyperschema
-    this.type = type
+    this.name = name
     this.fields = fields
     this.positionMap = positionMap
 
-    this.bool = !!bool
     this.struct = !!struct
+    this.compact = !!compact
     this.primitive = !!primitive
+    this.bool = name === 'bool'
 
-    this.encoding = this.primitive ? c[this.type] : createStructEncoding(this.fields, this.positionMap)
+    this._canEncode = false
+    this._encodables = null
+    this._bitfieldPosition = -1
+    this._optionals = null
+    this._encoding = null
   }
 
-  createIndexEncoding (primaryIndexFields) {
-    // Strip out the index fields from the struct definition, so that they aren't duplicated in the value
-    const positionMap = new Map([...this.positionMap])
-    const fields = [...this.fields]
-    for (const fieldName of primaryIndexFields) {
-      const position = positionMap.get(fieldName)
-      fields.splice(position, 1)
-      positionMap.delete(fieldName)
+  // Done lazily in case we want to load code-generated encodings from disk instead
+  get encoding () {
+    if (this._encoding) return this._encoding
+    if (this.primitive) {
+      if (SupportedTypes.has(this.name)) {
+        this._encoding = c[this.name]
+      } else {
+        throw new Error('Invalid primitive type: ' + this.name)
+      }
+    } else {
+      this._preprocessEncoding()
+      this._encoding = {
+        preencode: this._preencode.bind(this),
+        encode: this._encode.bind(this),
+        decode: this._decode.bind(this)
+      }
     }
-    return {
-      keyEncoding: createIndexKeyEncoding(this, primaryIndexFields),
-      valueEncoding: createStructEncoding(fields, positionMap)
+    this._canEncode = true
+    return this._encoding
+  }
+
+  _preprocessEncoding () {
+    this._encodables = new Array(this.fields.length)
+    this._optionals = []
+
+    for (let i = 0; i < this.fields.length; i++) {
+      const field = this.fields[i]
+      const framed = (!field.primitive && !field.compact)
+      const optional = !field.required
+      const array = !!field.array
+
+      let encoding = field.type.encoding
+      if (array) encoding = c.array(encoding)
+      if (framed) encoding = c.frame(encoding)
+
+      let flag = 0
+      if (optional) {
+        if (this._bitfieldPosition === -1) {
+          this._bitfieldPosition = i
+        }
+        flag = 2 ** this._optionals.length
+        this._optionals.push({ name: field.name, flag })
+      }
+      this._encodables[i] = { name: field.name, type: field.type, encoding, optional, flag }
     }
   }
 
-  static fromDescription (description, resolver) {
-    if (description.alias) return resolver(description.alias)
+  _preencode (state, m) {
+    if (!this._canEncode) throw new Error('Cannot encode or decode with this type')
+    let flags = 0
+    for (let i = 0; i < this._optionals.length; i++) {
+      const optional = this._optionals[i]
+      if (!m[optional.name]) continue
+      flags |= optional.flag
+    }
+    for (let i = 0; i < this._encodables.length; i++) {
+      if ((this._bitfieldPosition !== -1) && (i === this._bitfieldPosition)) {
+        c.uint.preencode(state, flags)
+      }
+      const field = this._encodables[i]
+      if (field.type.bool) continue
+      const value = m[field.name]
+      if (!value && field.optional) continue
+      this._encodables[i].encoding.preencode(state, value)
+    }
+  }
+
+  _encode (state, m) {
+    if (!this._canEncode) throw new Error('Cannot encode or decode with this type')
+    let flags = 0
+    for (let i = 0; i < this._optionals.length; i++) {
+      const optional = this._optionals[i]
+      if (!m[optional.name]) continue
+      flags |= optional.flag
+    }
+    for (let i = 0; i < this._encodables.length; i++) {
+      if ((this._bitfieldPosition !== -1) && (i === this._bitfieldPosition)) {
+        c.uint.encode(state, flags)
+      }
+      const field = this._encodables[i]
+      if (field.type.bool) continue
+      const value = m[field.name]
+      if (!value && field.optional) continue
+      this._encodables[i].encoding.encode(state, value)
+    }
+  }
+
+  _decode (state) {
+    if (!this._canEncode) throw new Error('Cannot encode or decode with this type')
+    let flags = -1
+    const res = {}
+    for (let i = 0; i < this._encodables.length; i++) {
+      const field = this._encodables[i]
+      res[field.name] = getDefaultValue(field.type)
+      if (field.optional && (flags === -1)) {
+        if (state.start >= state.end) return res
+        flags = c.uint.decode(state)
+      }
+      if (field.type.bool) {
+        res[field.name] = (flags & field.flag) !== 0
+      } else {
+        if (field.flag && !((flags & field.flag) !== 0)) continue
+        res[field.name] = field.encoding.decode(state)
+      }
+    }
+    return res
+  }
+
+  encode (value) {
+    return c.encode(this.encoding, value)
+  }
+
+  decode (value) {
+    return c.decode(this.encoding, value)
+  }
+
+  static fromDescription (hyperschema, description) {
+    if (description.alias) return hyperschema.resolve(description.alias)
     const fields = []
     const positionMap = new Map()
 
     for (const field of description.fields) {
-      const type = resolveType(field.type, resolver)
+      const type = hyperschema.resolve(field.type)
       const position = fields.push({ ...field, type }) - 1
       positionMap.set(field.name, position)
     }
 
-    return new this(resolver, {
+    return new this(hyperschema, description.name, {
       compact: description.compact,
-      type: description.name,
       struct: true,
       positionMap,
       fields
     })
   }
 
-  static fromName (name, resolver) {
-    return resolveType(name, resolver)
-  }
-
-  static PrimitiveResolvedTypes = new Map([...SupportedTypes].map(type => {
-    return [type, new this(null, { primitive: true, type, bool: type === 'bool' })]
+  static PrimitiveResolvedTypes = new Map([...SupportedTypes].map(name => {
+    return [name, new this(null, name, { primitive: true })]
   }))
-}
-
-function resolveType (type, resolver) {
-  if (ResolvedType.PrimitiveResolvedTypes.has(type)) return ResolvedType.PrimitiveResolvedTypes.get(type)
-  return resolver(type)
-}
-
-function createIndexKeyEncoding (targetType, fieldNames) {
-  const keys = []
-
-  for (const fieldName of fieldNames) {
-    const targetField = targetType.fields[targetType.positionMap.get(fieldName)]
-    if (!targetField) throw new Error('Invalid key field ' + fieldName)
-
-    const fieldIndexEncoding = IndexTypeMap.get(targetField.type.type)
-    if (!fieldIndexEncoding) throw new Error('Invalid index key type:' + targetField.type)
-
-    keys.push(fieldIndexEncoding)
-  }
-
-  return new IndexEncoder(keys)
 }
 
 class HyperschemaNamespace {
   constructor (hyperschema, name) {
-    this._hyperschema = hyperschema
-    this._name = name
-    this._types = new Map()
+    this.hyperschema = hyperschema
+    this.name = name
+    this.types = new Map()
   }
 
-  add (definition) {
+  _getFullyQualifiedName (name) {
+    return '@' + this.name + '/' + name
+  }
 
+  register (definition) {
+    if (this.types.has(definition.name)) throw new Error('Duplicate type definition')
+    const resolved = ResolvedType.fromDescription(this.hyperschema, definition)
+
+    this.hyperschema.fullyQualifiedTypes.set(this._getFullyQualifiedName(definition.name), resolved)
+    this.types.set(resolved.name, resolved)
   }
 }
 
 module.exports = class Hyperschema {
   constructor () {
-    this._fullyQualifiedTypes = new Map()
-    this._namespaces = new Map()
+    this.fullyQualifiedTypes = new Map()
+    this.namespaces = new Map()
   }
 
   namespace (name) {
-    if (this._namespaces.has(name)) throw new Error('Namespace already exists')
+    if (this.namespaces.has(name)) throw new Error('Namespace already exists')
     const ns = new HyperschemaNamespace(this, name)
-    this._namespaces.set(name, ns)
+    this.namespaces.set(name, ns)
     return ns
   }
 
+  resolve (type) {
+    if (ResolvedType.PrimitiveResolvedTypes.has(type)) return ResolvedType.PrimitiveResolvedTypes.get(type)
+    return this.fullyQualifiedTypes.get(type)
+  }
+
   encode (type, value) {
+    const resolved = this.fullyQualifiedTypes.get(type)
+    return resolved.encode(value)
   }
 
   decode (type, value) {
-
+    const resolved = this.fullyQualifiedTypes.get(type)
+    return resolved.decode(value)
   }
 
   toJSON (opts) {
     const namespacesOutput = []
 
-    const namespaces = [...this._namespaces]
-    namespaces.sort((a, b) => a[0].localeCompare(b[0]))
+    const namespaces = [...this.namespaces.values()]
+    namespaces.sort((a, b) => a.name.localeCompare(b.name))
 
-    for (const [namespaceName, namespace] of namespaces) {
+    for (const namespace of namespaces) {
       const typesOutput = []
 
-      const types = [...namespace._types]
-      types.sort((a, b) => a[0].localeCompare(b[0]))
+      const types = [...namespace.types.values()]
+      types.sort((a, b) => a.name.localeCompare(b.name))
 
-      for (const [typeName, resolvedType] of types) {
+      for (const resolvedType of types) {
         typesOutput.push(resolvedType.fullDescription)
       }
 
-      namespacesOutput.push({ name: ns.name, types: typesOutput })
+      namespacesOutput.push({ name: namespace.name, types: typesOutput })
     }
 
     return namespacesOutput
@@ -175,76 +243,5 @@ module.exports = class Hyperschema {
       }
     }
     return schema
-  }
-}
-
-// TODO: We should codegen this
-function createStructEncoding (fields, positionMap) {
-  const encodables = new Array(fields.length)
-  const optionals = []
-
-  for (let i = 0; i < fields.length; i++) {
-    const field = fields[i]
-    const framed = (!field.primitive && !field.compact)
-    const optional = !field.required
-
-    let encoding = field.type.encoding
-    if (field.array) encoding = c.array(encoding)
-    if (field.framed) encoding = c.frame(encoding)
-
-    let flag = 0
-    if (optional) {
-      flag = 2 ** optionals.length
-      optionals.push(i)
-    }
-    encodables[i] = { bool: !!field.bool, encoding, optional, flag }
-  }
-
-  return {
-    preencode (state, m) {
-      let flags = 0
-      for (let i = 0; i < optionals.length; i++) {
-        if (!m[fields[optionals[i]].name]) continue
-        flags |= encodables[optionals[i]].flag
-      }
-      c.uint.preencode(state, flags)
-      for (let i = 0; i < fields.length; i++) {
-        const field = fields[i]
-        if (field.type.bool) continue
-        const value = m[field.name]
-        if (!value && field.optional) continue
-        encodables[i].encoding.preencode(state, value)
-      }
-    },
-    encode (state, m) {
-      let flags = 0
-      for (let i = 0; i < optionals.length; i++) {
-        if (!m[fields[optionals[i]].name]) continue
-        flags |= encodables[optionals[i]].flag
-      }
-      c.uint.encode(state, flags)
-      for (let i = 0; i < fields.length; i++) {
-        const field = fields[i]
-        if (field.type.bool) continue
-        const value = m[field.name]
-        if (!value && field.optional) continue
-        encodables[i].encoding.encode(state, value)
-      }
-    },
-    decode (state) {
-      const flags = c.uint.decode(state)
-      const res = {}
-      for (let i = 0; i < fields.length; i++) {
-        const field = fields[i]
-        const encoding = encodables[i]
-        if (field.type.bool) {
-          res[field.name] = (flags & encoding.flag) !== 0
-        } else {
-          if (encoding.flag && !((flags & encoding.flag) !== 0)) continue
-          res[field.name] = encoding.encoding.decode(state)
-        }
-      }
-      return res
-    }
   }
 }
