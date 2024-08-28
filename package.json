@@ -20,7 +20,8 @@
     "compact-encoding": "^2.15.0",
     "generate-function": "^2.3.1",
     "generate-object-property": "^1.2.0",
-    "index-encoder": "^3.0.1"
+    "index-encoder": "^3.0.1",
+    "same-object": "^1.0.2"
   },
   "devDependencies": {
     "brittle": "^3.7.0",

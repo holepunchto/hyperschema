@@ -207,17 +207,20 @@ class HyperschemaNamespace {
 }
 
 module.exports = class Hyperschema {
-  constructor () {
+  constructor (namespaces, { _version = 1 } = {}) {
     this.fullyQualifiedTypes = new Map()
     this.namespaces = new Map()
     this.orderedTypes = []
-  }
+    this.version = _version
 
-  namespace (name) {
-    if (this.namespaces.has(name)) throw new Error('Namespace already exists')
-    const ns = new HyperschemaNamespace(this, name)
-    this.namespaces.set(name, ns)
-    return ns
+    for (const { name, schema } of namespaces) {
+      if (this.namespaces.has(name)) throw new Error('Namespace already exists')
+      const ns = new HyperschemaNamespace(this, name)
+      this.namespaces.set(name, ns)
+      for (const description of schema) {
+        ns.register(description)  
+      }
+    }
   }
 
   resolve (type) {
@@ -235,25 +238,32 @@ module.exports = class Hyperschema {
     return resolved.decode(value)
   }
 
-  toJSON (opts) {
-    const output = []
+  toJSON () {
+    const output = {
+      version: this.version,
+      schema: []
+    }
     for (const { namespace, name, definition } of this.orderedTypes) {
-      output.push({ namespace, definition })
+      output.schema.push({ namespace, definition })
     }
     return output
   }
 
-  static fromJSON (rawSchema) {
-    const schema = new this({ version: rawSchema.version })
-    for (const { namespace, definition } of rawSchema.definitions) {
-      let ns = null
-      if (schema.namespaces.has(namespace)) {
-        ns = schema.namespaces.get(namespace)
-      } else {
-        ns = schema.namespace(namespace)
-      }
-      ns.register(definition)
+  static fromJSON (json) {
+    const namespaces = []
+    const namespaceMap = new Map()
+    for (const { namespace, name, definition } of json.schema) {
+      if (!namespaceMap.has(description.namespace)) {
+        const ns = {
+          name: namespace,
+          schema: [] 
+        }
+        namespaces.push(ns)
+        namespaceMap.set(namespace, namespaces.length - 1)
+      }    
+      const ns = namespaces[namespaceMap.get(namespace)]
+      ns.schema.push(definition)
     }
-    return schema
+    return new this(namespaces, { _version: json.version })
   }
 }

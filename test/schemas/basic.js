@@ -1,16 +1,18 @@
-const Hyperschema = require('../..')
+const ns1 = {
+  name: 'namespace-1',
+  schema: []
+}
+const ns2 = {
+  name: 'namespace-2',
+  schema: []
+}
 
-const schema = module.exports = new Hyperschema()
-
-const ns1 = schema.namespace('namespace-1')
-const ns2 = schema.namespace('namespace-2')
-
-ns2.register({
+ns2.schema.push({
   name: 'basic-alias',
   alias: 'string'
 })
 
-ns1.register({
+ns1.schema.push({
   name: 'basic-bools',
   fields: [
     {
@@ -28,7 +30,7 @@ ns1.register({
   ]
 })
 
-ns1.register({
+ns1.schema.push({
   name: 'basic-struct',
   fields: [
     {
@@ -53,7 +55,7 @@ ns1.register({
   ]
 })
 
-ns1.register({
+ns1.schema.push({
   name: 'basic-embedded-struct',
   fields: [
     {
@@ -67,3 +69,5 @@ ns1.register({
     }
   ]
 })
+
+module.exports = [ns1, ns2]
