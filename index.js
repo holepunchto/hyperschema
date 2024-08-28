@@ -185,8 +185,6 @@ class HyperschemaNamespace {
     this.hyperschema = hyperschema
     this.name = name
     this.types = new Map()
-    this._ordered = []
-    this._orderedTypes = []
   }
 
   _getFullyQualifiedName (name) {
@@ -198,11 +196,10 @@ class HyperschemaNamespace {
     const fqn = this._getFullyQualifiedName(definition.name)
     const type = ResolvedType.fromDescription(this.hyperschema, fqn, definition)
 
-    this.hyperschema.fullyQualifiedTypes.set(fqn, type)
     this.types.set(type.name, type)
 
-    this._orderedTypes.push({ name: fqn, type })
-    this._ordered.push(definition)
+    this.hyperschema.fullyQualifiedTypes.set(fqn, type)
+    this.hyperschema.orderedTypes.push({ namespace: this.name, name: type.name, fqn, definition, type })
   }
 }
 
@@ -210,16 +207,13 @@ module.exports = class Hyperschema {
   constructor () {
     this.fullyQualifiedTypes = new Map()
     this.namespaces = new Map()
-    this._ordered = []
+    this.orderedTypes = []
   }
 
   namespace (name) {
     if (this.namespaces.has(name)) throw new Error('Namespace already exists')
     const ns = new HyperschemaNamespace(this, name)
     this.namespaces.set(name, ns)
-
-    this._ordered.push(name)
-
     return ns
   }
 
@@ -238,37 +232,24 @@ module.exports = class Hyperschema {
     return resolved.decode(value)
   }
 
-  listTypes () {
-    const types = []
-    for (const namespaceName of this._ordered) {
-      const namespace = this.namespaces.get(namespaceName)
-      for (const { name, type } of namespace._orderedTypes) {
-        types.push({ name, type })
-      }
-    }
-    return types
-  }
-
   toJSON (opts) {
     const output = []
-    for (const namespaceName of this._ordered) {
-      const msg = { name: namespaceName, types: [] }
-      const namespace = this.namespaces.get(namespaceName)
-      for (const definition of namespace._ordered) {
-        msg.types.push(definition)
-      }
-      output.push(msg)
+    for (const { namespace, name, definition } of this.orderedTypes) {
+      output.push({ namespace, definition })
     }
     return output
   }
 
   static fromJSON (rawSchema) {
     const schema = new this()
-    for (const { name, types } of rawSchema) {
-      const ns = schema.namespace(name)
-      for (const definition of types) {
-        ns.register(definition)
+    for (const { namespace, definition } of rawSchema) {
+      let ns = null
+      if (schema.namespaces.has(namespace)) {
+        ns = schema.namespaces.get(namespace)
+      } else {
+        ns = schema.namespace(namespace)
       }
+      ns.register(definition)
     }
     return schema
   }
