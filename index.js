@@ -17,6 +17,7 @@ class ResolvedType {
     this.compact = !!compact
     this.primitive = !!primitive
     this.bool = name === 'bool'
+    this.default = getDefaultValue(this.name)
 
     this._canEncode = false
     this._encodables = null
@@ -69,7 +70,14 @@ class ResolvedType {
         flag = 2 ** this._optionals.length
         this._optionals.push({ name: field.name, flag })
       }
-      this._encodables[i] = { name: field.name, type: field.type, encoding, optional, flag }
+      this._encodables[i] = {
+        default: array ? null : field.type.default,
+        name: field.name,
+        type: field.type,
+        encoding,
+        optional,
+        flag
+      }
     }
   }
 
@@ -120,7 +128,7 @@ class ResolvedType {
     const res = {}
     for (let i = 0; i < this._encodables.length; i++) {
       const field = this._encodables[i]
-      res[field.name] = getDefaultValue(field.type)
+      res[field.name] = field.default
       if (field.optional && (flags === -1)) {
         if (state.start >= state.end) return res
         flags = c.uint.decode(state)
