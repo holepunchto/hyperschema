@@ -54,7 +54,7 @@ class ResolvedType {
 
     for (let i = 0; i < this.fields.length; i++) {
       const field = this.fields[i]
-      const framed = (!field.primitive && !field.compact)
+      const framed = !field.type.primitive && !field.type.compact
       const optional = !field.required
       const array = !!field.array
 
@@ -72,10 +72,13 @@ class ResolvedType {
       }
       this._encodables[i] = {
         default: array ? null : field.type.default,
-        name: field.name,
+        fqn: field.type.fqn,
         type: field.type,
+        name: field.name,
         encoding,
         optional,
+        framed,
+        array,
         flag
       }
     }
@@ -241,8 +244,8 @@ module.exports = class Hyperschema {
   }
 
   static fromJSON (rawSchema) {
-    const schema = new this()
-    for (const { namespace, definition } of rawSchema) {
+    const schema = new this({ version: rawSchema.version })
+    for (const { namespace, definition } of rawSchema.definitions) {
       let ns = null
       if (schema.namespaces.has(namespace)) {
         ns = schema.namespaces.get(namespace)
