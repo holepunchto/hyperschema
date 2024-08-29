@@ -16,15 +16,15 @@ if (!input || !output) {
 
 const inputSchemaPath = p.resolve(input)
 const outputDirPath = p.resolve(output)
-const outputJsonPath = p.join(outputDirPath, 'schema.json') 
+const outputJsonPath = p.join(outputDirPath, 'schema.json')
 const outputCencPath = p.join(outputDirPath, 'messages.js')
 
 let exists = false
 try {
-  const st = fs.statSync(outputJsonPath)  
+  fs.statSync(outputJsonPath)
   exists = true
 } catch (err) {
-  if (err.code !== 'ENOENT') throw err  
+  if (err.code !== 'ENOENT') throw err
 }
 if (!exists) {
   fs.mkdirSync(output, { recursive: true })
@@ -40,9 +40,8 @@ if (prev && sameObject(prev.description, next.description)) {
 
 const nextJson = next.toJSON()
 if (prev) {
-  nextJson.version = prev.version + 1  
+  nextJson.version = prev.version + 1
 }
-console.log('NEXT JSON VERSION:', nextJson.version)
 
 fs.writeFileSync(outputJsonPath, JSON.stringify(nextJson, null, 2) + '\n')
 fs.writeFileSync(outputCencPath, generateCompactEncoders(next, nextJson.version))

@@ -1,4 +1,4 @@
-const Hyperschema = require('../..')
+const Hyperschema = require('../../..')
 const schema = new Hyperschema.Builder()
 
 const ns1 = schema.namespace('namespace-1')
@@ -63,6 +63,21 @@ ns1.register({
     {
       name: 'embedded',
       type: '@namespace-1/basic-struct'
+    }
+  ]
+})
+
+ns1.register({
+  name: 'deeper-embedded-struct',
+  fields: [
+    {
+      name: 'outerString',
+      type: 'string',
+      required: true
+    },
+    {
+      name: 'embedded',
+      type: '@namespace-1/basic-embedded-struct'
     }
   ]
 })
