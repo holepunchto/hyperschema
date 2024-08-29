@@ -30,22 +30,27 @@ class Builder {
 }
 
 class ResolvedType {
-  constructor (hyperschema, name, fqn, { primitive, struct, compact, fields, positionMap }) {
+  constructor (hyperschema, description, fqn, version, opts = {}) {
+    const { primitive, struct, fields, positionMap } = opts
     this.hyperschema = hyperschema
+    this.description = description
+    this.name = description.name
+    this.namespace = description.namespace
     this.fqn = fqn
-    this.name = name
+
     this.fields = fields
     this.positionMap = positionMap
+    this.version = version
 
+    this.compact = !!description.compact
     this.struct = !!struct
-    this.compact = !!compact
     this.primitive = !!primitive
-    this.bool = name === 'bool'
+    this.bool = this.name === 'bool'
     this.default = getDefaultValue(this.name)
 
+    this._bitfieldPosition = -1
     this._canEncode = false
     this._encodables = null
-    this._bitfieldPosition = -1
     this._optionals = null
     this._encoding = null
   }
@@ -184,17 +189,35 @@ class ResolvedType {
 
   static fromDescription (hyperschema, fqn, description) {
     if (description.alias) return hyperschema.resolve(description.alias)
+
+    const previous = hyperschema.previous ? hyperschema.previous.fullyQualifiedTypes.get(fqn) : null
+
     const fields = []
     const positionMap = new Map()
+    let version = hyperschema.getBaseVersion(fqn)
 
-    for (const field of description.fields) {
-      const type = hyperschema.resolve(field.type)
-      const position = fields.push({ ...field, type }) - 1
+    if (fqn === '@namespace-1/deeper-embedded-struct-2') {
+      console.log('BASE VERSION HERE IS:', version)  
+      console.log('previous is:', previous)
+    }
+
+    for (let i = 0; i < description.fields.length; i++) {
+      const fieldDescription = description.fields[i]  
+      const field = {
+        ...fieldDescription,
+        type: hyperschema.resolve(fieldDescription.type),
+        version: (previous && previous.fields[i]) ? previous.version : hyperschema.version  
+      }
+      const position = fields.push(field) - 1
       positionMap.set(field.name, position)
     }
 
-    return new this(hyperschema, description.name, fqn, {
-      compact: description.compact,
+    for (const field of fields) {
+      if (field.version <= version) continue
+      version = field.version
+    }
+
+    return new this(hyperschema, description, fqn, version, {
       struct: true,
       positionMap,
       fields
@@ -202,7 +225,8 @@ class ResolvedType {
   }
 
   static PrimitiveResolvedTypes = new Map([...SupportedTypes].map(name => {
-    return [name, new this(null, name, name, { primitive: true })]
+    const description = { name, namespace: null }
+    return [name, new this(null, description, name, 1, { primitive: true })]
   }))
 }
 
@@ -224,12 +248,14 @@ class HyperschemaNamespace {
 module.exports = class Hyperschema {
   static Builder = Builder
 
-  constructor (types, { _version = 1 } = {}) {
+  constructor (types, { _previous = null, _version = 1 } = {}) {
     this.description = types
 
     this.fullyQualifiedTypes = new Map()
     this.namespaces = new Map()
     this.orderedTypes = []
+
+    this.previous = _previous
     this.version = _version
 
     for (const description of types) {
@@ -243,9 +269,9 @@ module.exports = class Hyperschema {
 
       this.fullyQualifiedTypes.set(fqn, type)
       this.orderedTypes.push({
-        namespace: description.namespace,
-        name: fqn,
+        version: type.version,
         description,
+        name: fqn,
         type
       })
     }
@@ -253,6 +279,11 @@ module.exports = class Hyperschema {
 
   _getFullyQualifiedName (description) {
     return '@' + description.namespace + '/' + description.name
+  }
+
+  getBaseVersion (type) {
+    if (this.previous && this.previous.fullyQualifiedTypes.has(type)) return this.previous.version
+    return this.version
   }
 
   resolve (type) {
@@ -275,8 +306,21 @@ module.exports = class Hyperschema {
       version: this.version,
       schema: []
     }
-    for (const { description } of this.orderedTypes) {
-      output.schema.push(description)
+    for (const { name, namespace, description, type } of this.orderedTypes) {
+      if (!description.fields) {
+        output.schema.push({ ...description, version: type.version })
+        continue
+      } 
+      output.schema.push({
+        ...description,
+        version: type.version,
+        fields: description.fields.map((f, i) => {
+          return {
+            ...f,
+            version: type.fields[i].version   
+          }
+        })   
+      })
     }
     return output
   }

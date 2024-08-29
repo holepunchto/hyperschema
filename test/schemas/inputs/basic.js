@@ -79,6 +79,31 @@ ns1.register({
       name: 'embedded',
       type: '@namespace-1/basic-embedded-struct'
     }
+    /*
+    {
+      name: 'another',
+      type: 'uint'
+    }
+    */
+  ]
+})
+
+ns1.register({
+  name: 'deeper-embedded-struct-2',
+  fields: [
+    {
+      name: 'outerString',
+      type: 'string',
+      required: true
+    },
+    {
+      name: 'embedded',
+      type: '@namespace-1/basic-embedded-struct'
+    },
+    {
+      name: 'an-optional',
+      type: 'string'
+    }
   ]
 })
 

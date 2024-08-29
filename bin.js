@@ -30,17 +30,21 @@ if (!exists) {
   fs.mkdirSync(output, { recursive: true })
 }
 
-const prev = exists ? Hyperschema.fromJSON(require(outputJsonPath)) : null
-const next = new Hyperschema(require(inputSchemaPath))
+let prevJson = null
+let prev = null
+if (exists) {
+  prevJson = require(outputJsonPath)
+  prev = Hyperschema.fromJSON(prevJson)
+}
+const next = new Hyperschema(require(inputSchemaPath), {
+  _previous: prev,
+  _version: prev ? prev.version + 1 : 1
+})
+const nextJson = next.toJSON()
 
-if (prev && sameObject(prev.description, next.description)) {
+if (prevJson && sameObject(prevJson.schema, nextJson.schema)) {
   console.log('Schema has not been changed.')
   process.exit(0)
-}
-
-const nextJson = next.toJSON()
-if (prev) {
-  nextJson.version = prev.version + 1
 }
 
 fs.writeFileSync(outputJsonPath, JSON.stringify(nextJson, null, 2) + '\n')
