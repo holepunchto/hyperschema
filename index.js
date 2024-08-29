@@ -73,14 +73,15 @@ class ResolvedType {
 
       let flag = 0
       if (optional) {
-        if (this.bitfieldPosition === -1) {
-          this.bitfieldPosition = i
+        if (this.flagsPosition === -1) {
+          this.flagsPosition = i
         }
         flag = 2 ** this.optionals.length
-        this.optionals.push({ name: field.name, flag })
+        this.optionals.push({ name: field.name, version: field.version, flag })
       }
       this.encodables[i] = {
         default: array ? null : field.type.default,
+        version: field.version,
         fqn: field.type.fqn,
         type: field.type,
         name: field.name,
@@ -187,7 +188,7 @@ module.exports = class Hyperschema {
 
       this.fullyQualifiedTypes.set(fqn, type)
       this.orderedTypes.push({
-        version: type.version,
+        versions: type.versions,
         description,
         name: fqn,
         type
