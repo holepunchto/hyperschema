@@ -49,6 +49,9 @@ class ResolvedType {
     this.default = getDefaultValue(this.name)
 
     this._bitfieldPosition = -1
+    if (Number.isInteger(description.flagsPosition)) {
+      this._bitfieldPosition = description.flagsPosition  
+    }
     this._canEncode = false
     this._encodables = null
     this._optionals = null
@@ -196,17 +199,14 @@ class ResolvedType {
     const positionMap = new Map()
     let version = hyperschema.getBaseVersion(fqn)
 
-    if (fqn === '@namespace-1/deeper-embedded-struct-2') {
-      console.log('BASE VERSION HERE IS:', version)  
-      console.log('previous is:', previous)
-    }
-
     for (let i = 0; i < description.fields.length; i++) {
       const fieldDescription = description.fields[i]  
+      const type = hyperschema.resolve(fieldDescription.type)
+      const minVersion = (previous && previous.fields[i]) ? previous.version : hyperschema.version 
       const field = {
         ...fieldDescription,
         type: hyperschema.resolve(fieldDescription.type),
-        version: (previous && previous.fields[i]) ? previous.version : hyperschema.version  
+        version: Math.max(minVersion, type.version)   
       }
       const position = fields.push(field) - 1
       positionMap.set(field.name, position)
@@ -214,6 +214,7 @@ class ResolvedType {
 
     for (const field of fields) {
       if (field.version <= version) continue
+      if (description.compact) throw new Error('Cannot change fields in a compact type: ' + fqn)
       version = field.version
     }
 
@@ -268,6 +269,7 @@ module.exports = class Hyperschema {
       const type = ns.register(fqn, description)
 
       this.fullyQualifiedTypes.set(fqn, type)
+      console.log('pusing description:', description)
       this.orderedTypes.push({
         version: type.version,
         description,
@@ -322,6 +324,7 @@ module.exports = class Hyperschema {
         })   
       })
     }
+    console.log('output is:', output)
     return output
   }
 

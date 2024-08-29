@@ -29,6 +29,7 @@ ns1.register({
 
 ns1.register({
   name: 'basic-struct',
+  flagsPosition: 0,
   fields: [
     {
       name: 'id',
@@ -48,6 +49,44 @@ ns1.register({
     {
       name: 'basicAlias',
       type: '@namespace-2/basic-alias'
+    },
+    {
+      name: 'anotherString',
+      type: 'string'
+    }
+  ]
+})
+
+ns1.register({
+  name: 'basic-compact-struct',
+  compact: true,
+  fields: [
+    {
+      name: 'id',
+      type: 'uint',
+      required: true
+    },
+    {
+      name: 'basicString',
+      type: 'string',
+      required: true
+    },
+    {
+      name: 'basicArray',
+      type: 'uint',
+      array: true
+    },
+    {
+      name: 'basicAlias',
+      type: '@namespace-2/basic-alias'
+    },
+    {
+      name: 'anotherString',
+      type: 'string'
+    },
+    {
+      name: 'additional',
+      type: 'string'
     }
   ]
 })
@@ -63,6 +102,21 @@ ns1.register({
     {
       name: 'embedded',
       type: '@namespace-1/basic-struct'
+    }
+  ]
+})
+
+ns1.register({
+  name: 'basic-compact-embedded-struct',
+  fields: [
+    {
+      name: 'outerString',
+      type: 'string',
+      required: true
+    },
+    {
+      name: 'embeddedCompact',
+      type: '@namespace-1/basic-compact-struct'
     }
   ]
 })
