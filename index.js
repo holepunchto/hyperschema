@@ -112,9 +112,6 @@ class ResolvedType {
         // TODO: Do append-only checks here
         fieldVersion = previous.fields[i].version
       }
-      if (type.versions.latest > fieldVersion) {
-        fieldVersion = type.versions.latest
-      }
 
       const field = {
         ...fieldDescription,
