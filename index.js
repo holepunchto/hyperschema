@@ -5,6 +5,30 @@ const {
   getDefaultValue
 } = require('./lib/types.js')
 
+class BuilderNamespace {
+  constructor (builder, name) {
+    this.builder = builder
+    this.name = name
+  }
+
+  register (description) {
+    this.builder.types.push({ ...description, namespace: this.name })
+  }
+}
+class Builder {
+  constructor () {
+    this.types = []
+  }
+
+  namespace (name) {
+    return new BuilderNamespace(this, name)
+  }
+
+  toJSON () {
+    return this.types
+  }
+}
+
 class ResolvedType {
   constructor (hyperschema, name, fqn, { primitive, struct, compact, fields, positionMap }) {
     this.hyperschema = hyperschema
@@ -97,7 +121,6 @@ class ResolvedType {
         c.uint.preencode(state, flags)
       }
       const field = this._encodables[i]
-      console.log('preencoding field:', field)
       if (field.type.bool) continue
       const value = m[field.name]
       if (!value && field.optional) continue
@@ -190,37 +213,46 @@ class HyperschemaNamespace {
     this.types = new Map()
   }
 
-  _getFullyQualifiedName (name) {
-    return '@' + this.name + '/' + name
-  }
-
-  register (definition) {
-    if (this.types.has(definition.name)) throw new Error('Duplicate type definition')
-    const fqn = this._getFullyQualifiedName(definition.name)
-    const type = ResolvedType.fromDescription(this.hyperschema, fqn, definition)
-
-    this.types.set(type.name, type)
-
-    this.hyperschema.fullyQualifiedTypes.set(fqn, type)
-    this.hyperschema.orderedTypes.push({ namespace: this.name, name: type.name, fqn, definition, type })
+  register (fqn, description) {
+    if (this.types.has(description.name)) throw new Error('Duplicate type description')
+    const type = ResolvedType.fromDescription(this.hyperschema, fqn, description)
+    this.types.set(description.name, type)
+    return type
   }
 }
 
 module.exports = class Hyperschema {
-  constructor (namespaces, { _version = 1 } = {}) {
+  static Builder = Builder
+
+  constructor (types, { _version = 1 } = {}) {
+    this.description = types
+
     this.fullyQualifiedTypes = new Map()
     this.namespaces = new Map()
     this.orderedTypes = []
     this.version = _version
 
-    for (const { name, schema } of namespaces) {
-      if (this.namespaces.has(name)) throw new Error('Namespace already exists')
-      const ns = new HyperschemaNamespace(this, name)
-      this.namespaces.set(name, ns)
-      for (const description of schema) {
-        ns.register(description)  
+    for (const description of types) {
+      if (!this.namespaces.has(description.namespace)) {
+        const ns = new HyperschemaNamespace(this, description.namespace)
+        this.namespaces.set(description.namespace, ns)
       }
+      const ns = this.namespaces.get(description.namespace)
+      const fqn = this._getFullyQualifiedName(description)
+      const type = ns.register(fqn, description)
+
+      this.fullyQualifiedTypes.set(fqn, type)
+      this.orderedTypes.push({
+        namespace: description.namespace,
+        name: fqn,
+        description,
+        type
+      })
     }
+  }
+
+  _getFullyQualifiedName (description) {
+    return '@' + description.namespace + '/' + description.name
   }
 
   resolve (type) {
@@ -243,27 +275,14 @@ module.exports = class Hyperschema {
       version: this.version,
       schema: []
     }
-    for (const { namespace, name, definition } of this.orderedTypes) {
-      output.schema.push({ namespace, definition })
+    for (const { description } of this.orderedTypes) {
+      output.schema.push(description)
     }
     return output
   }
 
   static fromJSON (json) {
-    const namespaces = []
-    const namespaceMap = new Map()
-    for (const { namespace, name, definition } of json.schema) {
-      if (!namespaceMap.has(description.namespace)) {
-        const ns = {
-          name: namespace,
-          schema: [] 
-        }
-        namespaces.push(ns)
-        namespaceMap.set(namespace, namespaces.length - 1)
-      }    
-      const ns = namespaces[namespaceMap.get(namespace)]
-      ns.schema.push(definition)
-    }
-    return new this(namespaces, { _version: json.version })
+    if (!json.version) throw new Error('Previous version must be provided with fromJSON')
+    return new this(json.schema, { _version: json.version })
   }
 }

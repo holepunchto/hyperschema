@@ -11,11 +11,13 @@ const input = args[0]
 const output = args[1]
 if (!input || !output) {
   console.error('Usage: hyperschema [input.js] [outputDir]')
+  process.exit(1)
 }
 
 const inputSchemaPath = p.resolve(input)
-const outputJsonPath = p.join(p.resolve(output), 'schema.json') 
-const outputCencPath = p.join(p.resolve(output), 'messages.js')
+const outputDirPath = p.resolve(output)
+const outputJsonPath = p.join(outputDirPath, 'schema.json') 
+const outputCencPath = p.join(outputDirPath, 'messages.js')
 
 let exists = false
 try {
@@ -24,11 +26,14 @@ try {
 } catch (err) {
   if (err.code !== 'ENOENT') throw err  
 }
+if (!exists) {
+  fs.mkdirSync(output, { recursive: true })
+}
 
 const prev = exists ? Hyperschema.fromJSON(require(outputJsonPath)) : null
 const next = new Hyperschema(require(inputSchemaPath))
 
-if (prev && sameObject(prev.orderedTypes, next.orderedTypes)) {
+if (prev && sameObject(prev.description, next.description)) {
   console.log('Schema has not been changed.')
   process.exit(0)
 }
@@ -37,9 +42,10 @@ const nextJson = next.toJSON()
 if (prev) {
   nextJson.version = prev.version + 1  
 }
+console.log('NEXT JSON VERSION:', nextJson.version)
 
-fs.writeFileSync(outputJsonPath, JSON.stringify(nextJson, null, 2))
-fs.writeFileSync(outputCencPath, generateCompactEncoders(next))
+fs.writeFileSync(outputJsonPath, JSON.stringify(nextJson, null, 2) + '\n')
+fs.writeFileSync(outputCencPath, generateCompactEncoders(next, nextJson.version))
 
 console.log('Schema JSON snapshot written to ' + outputJsonPath)
 console.log('Compact encodings written to ' + outputCencPath)

@@ -1,18 +1,15 @@
-const ns1 = {
-  name: 'namespace-1',
-  schema: []
-}
-const ns2 = {
-  name: 'namespace-2',
-  schema: []
-}
+const Hyperschema = require('../..')
+const schema = new Hyperschema.Builder()
 
-ns2.schema.push({
+const ns1 = schema.namespace('namespace-1')
+const ns2 = schema.namespace('namespace-2')
+
+ns2.register({
   name: 'basic-alias',
   alias: 'string'
 })
 
-ns1.schema.push({
+ns1.register({
   name: 'basic-bools',
   fields: [
     {
@@ -30,7 +27,7 @@ ns1.schema.push({
   ]
 })
 
-ns1.schema.push({
+ns1.register({
   name: 'basic-struct',
   fields: [
     {
@@ -55,7 +52,7 @@ ns1.schema.push({
   ]
 })
 
-ns1.schema.push({
+ns1.register({
   name: 'basic-embedded-struct',
   fields: [
     {
@@ -70,4 +67,4 @@ ns1.schema.push({
   ]
 })
 
-module.exports = [ns1, ns2]
+module.exports = schema.toJSON()
