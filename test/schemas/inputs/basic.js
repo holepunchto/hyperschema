@@ -49,11 +49,13 @@ ns1.register({
     {
       name: 'basicAlias',
       type: '@namespace-2/basic-alias'
-    },
+    }
+    /*
     {
       name: 'anotherString',
       type: 'string'
     }
+    */
   ]
 })
 
@@ -83,10 +85,6 @@ ns1.register({
     {
       name: 'anotherString',
       type: 'string'
-    },
-    {
-      name: 'additional',
-      type: 'string'
     }
   ]
 })
@@ -101,6 +99,10 @@ ns1.register({
     },
     {
       name: 'embedded',
+      type: '@namespace-1/basic-struct'
+    },
+    {
+      name: 'embedded2',
       type: '@namespace-1/basic-struct'
     }
   ]
@@ -132,13 +134,11 @@ ns1.register({
     {
       name: 'embedded',
       type: '@namespace-1/basic-embedded-struct'
-    }
-    /*
+    },
     {
       name: 'another',
       type: 'uint'
     }
-    */
   ]
 })
 
@@ -157,6 +157,14 @@ ns1.register({
     {
       name: 'an-optional',
       type: 'string'
+    },
+    {
+      name: 'another',
+      type: 'uint'
+    },
+    {
+      name: 'another-one',
+      type: 'uint'
     }
   ]
 })

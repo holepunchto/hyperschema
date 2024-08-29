@@ -42,6 +42,7 @@ const next = new Hyperschema(require(inputSchemaPath), {
 })
 const nextJson = next.toJSON()
 
+console.log('prev json:', prevJson && prevJson.schema, 'next json:', nextJson.schema)
 if (prevJson && sameObject(prevJson.schema, nextJson.schema)) {
   console.log('Schema has not been changed.')
   process.exit(0)

@@ -30,7 +30,7 @@ class Builder {
 }
 
 class ResolvedType {
-  constructor (hyperschema, description, fqn, version, opts = {}) {
+  constructor (hyperschema, description, fqn, versions, opts = {}) {
     const { primitive, struct, fields, positionMap } = opts
     this.hyperschema = hyperschema
     this.description = description
@@ -40,7 +40,7 @@ class ResolvedType {
 
     this.fields = fields
     this.positionMap = positionMap
-    this.version = version
+    this.versions = versions
 
     this.compact = !!description.compact
     this.struct = !!struct
@@ -48,41 +48,18 @@ class ResolvedType {
     this.bool = this.name === 'bool'
     this.default = getDefaultValue(this.name)
 
-    this._bitfieldPosition = -1
+    this.encodables = null
+    this.optionals = null
+    this.flagsPosition = -1
     if (Number.isInteger(description.flagsPosition)) {
-      this._bitfieldPosition = description.flagsPosition  
+      this.flagsPosition = description.flagsPosition  
     }
-    this._canEncode = false
-    this._encodables = null
-    this._optionals = null
-    this._encoding = null
   }
 
-  // Done lazily in case we want to load code-generated encodings from disk instead
-  get encoding () {
-    if (this._encoding) return this._encoding
-    if (this.primitive) {
-      if (SupportedTypes.has(this.name)) {
-        this._encoding = c[this.name]
-      } else {
-        throw new Error('Invalid primitive type: ' + this.name)
-      }
-    } else {
-      this.preprocessEncoding()
-      this._encoding = {
-        preencode: this._preencode.bind(this),
-        encode: this._encode.bind(this),
-        decode: this._decode.bind(this)
-      }
-    }
-    this._canEncode = true
-    return this._encoding
-  }
-
-  preprocessEncoding () {
-    if (this._encodables) return
-    this._encodables = new Array(this.fields.length)
-    this._optionals = []
+  preprocess () {
+    if (this.encodables) return
+    this.encodables = new Array(this.fields.length)
+    this.optionals = []
 
     for (let i = 0; i < this.fields.length; i++) {
       const field = this.fields[i]
@@ -96,13 +73,13 @@ class ResolvedType {
 
       let flag = 0
       if (optional) {
-        if (this._bitfieldPosition === -1) {
-          this._bitfieldPosition = i
+        if (this.bitfieldPosition === -1) {
+          this.bitfieldPosition = i
         }
-        flag = 2 ** this._optionals.length
-        this._optionals.push({ name: field.name, flag })
+        flag = 2 ** this.optionals.length
+        this.optionals.push({ name: field.name, flag })
       }
-      this._encodables[i] = {
+      this.encodables[i] = {
         default: array ? null : field.type.default,
         fqn: field.type.fqn,
         type: field.type,
@@ -116,80 +93,6 @@ class ResolvedType {
     }
   }
 
-  _preencode (state, m) {
-    if (!this._canEncode) throw new Error('Cannot encode or decode with this type')
-    let flags = 0
-    for (let i = 0; i < this._optionals.length; i++) {
-      const optional = this._optionals[i]
-      if (!m[optional.name]) continue
-      flags |= optional.flag
-    }
-    for (let i = 0; i < this._encodables.length; i++) {
-      if ((this._bitfieldPosition !== -1) && (i === this._bitfieldPosition)) {
-        c.uint.preencode(state, flags)
-      }
-      const field = this._encodables[i]
-      if (field.type.bool) continue
-      const value = m[field.name]
-      if (!value && field.optional) continue
-      this._encodables[i].encoding.preencode(state, value)
-    }
-  }
-
-  _encode (state, m) {
-    if (!this._canEncode) throw new Error('Cannot encode or decode with this type')
-    let flags = 0
-    for (let i = 0; i < this._optionals.length; i++) {
-      const optional = this._optionals[i]
-      if (!m[optional.name]) continue
-      flags |= optional.flag
-    }
-    for (let i = 0; i < this._encodables.length; i++) {
-      if ((this._bitfieldPosition !== -1) && (i === this._bitfieldPosition)) {
-        c.uint.encode(state, flags)
-      }
-      const field = this._encodables[i]
-      if (field.type.bool) continue
-      const value = m[field.name]
-      if (!value && field.optional) continue
-      this._encodables[i].encoding.encode(state, value)
-    }
-  }
-
-  _decode (state) {
-    if (!this._canEncode) throw new Error('Cannot encode or decode with this type')
-    let flags = -1
-    const res = {}
-    for (let i = 0; i < this._encodables.length; i++) {
-      const field = this._encodables[i]
-      res[field.name] = field.default
-      if (field.optional && (flags === -1)) {
-        if (state.start >= state.end) return res
-        flags = c.uint.decode(state)
-      }
-      if (field.type.bool) {
-        res[field.name] = (flags & field.flag) !== 0
-      } else {
-        if (field.flag && !((flags & field.flag) !== 0)) continue
-        res[field.name] = field.encoding.decode(state)
-      }
-    }
-    return res
-  }
-
-  encode (value) {
-    return c.encode(this.encoding, value)
-  }
-
-  decode (value) {
-    return c.decode(this.encoding, value)
-  }
-
-  generate () {
-    if (this.primitive) return
-    this.preprocessEncoding()
-  }
-
   static fromDescription (hyperschema, fqn, description) {
     if (description.alias) return hyperschema.resolve(description.alias)
 
@@ -197,28 +100,42 @@ class ResolvedType {
 
     const fields = []
     const positionMap = new Map()
-    let version = hyperschema.getBaseVersion(fqn)
+    const structVersions = description.versions || hyperschema.getStructVersions(fqn)
 
     for (let i = 0; i < description.fields.length; i++) {
       const fieldDescription = description.fields[i]  
       const type = hyperschema.resolve(fieldDescription.type)
-      const minVersion = (previous && previous.fields[i]) ? previous.version : hyperschema.version 
+
+      let fieldVersion = fieldDescription.version || hyperschema.version 
+      if (previous && previous.fields[i]) {
+        // TODO: Do append-only checks here
+        fieldVersion = previous.fields[i].version
+      }
+      if (type.versions.latest > fieldVersion) {
+        fieldVersion = type.versions.latest
+      }
+
       const field = {
         ...fieldDescription,
         type: hyperschema.resolve(fieldDescription.type),
-        version: Math.max(minVersion, type.version)   
+        version: fieldVersion   
       }
       const position = fields.push(field) - 1
       positionMap.set(field.name, position)
     }
 
-    for (const field of fields) {
-      if (field.version <= version) continue
-      if (description.compact) throw new Error('Cannot change fields in a compact type: ' + fqn)
-      version = field.version
+    for (let i = 0; i < fields.length; i++) {
+      const field = fields[i]  
+      if (field.version <= structVersions.latest) continue
+      if (description.compact) {
+        console.log('FIELD:', field, 'struct versions:', structVersions, 'prev:', previous?.fields[i])
+        throw new Error('Cannot change fields in a compact type: ' + fqn)
+      }
+      console.log('setting structVersions.latest to:', field.version)
+      structVersions.latest = field.version
     }
 
-    return new this(hyperschema, description, fqn, version, {
+    return new this(hyperschema, description, fqn, structVersions, {
       struct: true,
       positionMap,
       fields
@@ -227,7 +144,7 @@ class ResolvedType {
 
   static PrimitiveResolvedTypes = new Map([...SupportedTypes].map(name => {
     const description = { name, namespace: null }
-    return [name, new this(null, description, name, 1, { primitive: true })]
+    return [name, new this(null, description, name, { first: 1, latest: 1 }, { primitive: true })]
   }))
 }
 
@@ -269,7 +186,6 @@ module.exports = class Hyperschema {
       const type = ns.register(fqn, description)
 
       this.fullyQualifiedTypes.set(fqn, type)
-      console.log('pusing description:', description)
       this.orderedTypes.push({
         version: type.version,
         description,
@@ -283,9 +199,11 @@ module.exports = class Hyperschema {
     return '@' + description.namespace + '/' + description.name
   }
 
-  getBaseVersion (type) {
-    if (this.previous && this.previous.fullyQualifiedTypes.has(type)) return this.previous.version
-    return this.version
+  getStructVersions (type) {
+    const prevType = this.previous && this.previous.fullyQualifiedTypes.get(type)
+    console.log('prev type for?', type, !!prevType)
+    if (prevType) return prevType.versions
+    return { first: this.version, latest: this.version }
   }
 
   resolve (type) {
@@ -310,12 +228,12 @@ module.exports = class Hyperschema {
     }
     for (const { name, namespace, description, type } of this.orderedTypes) {
       if (!description.fields) {
-        output.schema.push({ ...description, version: type.version })
+        output.schema.push({ ...description, versions: type.versions })
         continue
       } 
       output.schema.push({
         ...description,
-        version: type.version,
+        versions: type.versions,
         fields: description.fields.map((f, i) => {
           return {
             ...f,
@@ -324,7 +242,6 @@ module.exports = class Hyperschema {
         })   
       })
     }
-    console.log('output is:', output)
     return output
   }
 
