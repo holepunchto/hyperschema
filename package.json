@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "description": "Create registries of declarative compact-encoding schemas",
   "main": "index.js",
+  "bin": {
+    "hyperschema": "./bin.js"  
+  },
   "scripts": {
     "test": "standard && brittle test/index.js"
   },
