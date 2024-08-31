@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 const p = require('path')
 const fs = require('fs')
-const sameObject = require('same-object')
 
 const Hyperschema = require('.')
 
@@ -29,23 +28,20 @@ if (!exists) {
   fs.mkdirSync(output, { recursive: true })
 }
 
-let prevJson = null
-let prev = null
+let previousJson = null
+let previous = null
 if (exists) {
-  prevJson = require(outputJsonPath)
-  prev = Hyperschema.fromJSON(prevJson)
+  previousJson = require(outputJsonPath)
+  previous = new Hyperschema(previousJson)
 }
-const next = new Hyperschema(require(inputSchemaPath), {
-  _previous: prev,
-  _version: prev ? prev.version + 1 : 1
-})
-const nextJson = next.toJSON()
+const next = new Hyperschema(require(inputSchemaPath), { previous })
 
-if (prevJson && sameObject(prevJson.schema, nextJson.schema)) {
+if (previous && (next.version === previous.version)) {
   console.log('Schema has not been changed.')
   process.exit(0)
 }
 
+const nextJson = next.toJSON()
 fs.writeFileSync(outputJsonPath, JSON.stringify(nextJson, null, 2) + '\n')
 fs.writeFileSync(outputCencPath, next.toCode())
 

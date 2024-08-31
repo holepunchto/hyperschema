@@ -1,4 +1,5 @@
 const c = require('compact-encoding')
+const sameObject = require('same-object')
 
 const {
   SupportedTypes,
@@ -26,7 +27,7 @@ class Builder {
   }
 
   toJSON () {
-    return this.types
+    return { version: 0, schema: this.types }
   }
 }
 
@@ -162,32 +163,40 @@ class HyperschemaNamespace {
 module.exports = class Hyperschema {
   static Builder = Builder
 
-  constructor (types, { _previous = null, _version = 1 } = {}) {
-    this.description = types
+  constructor (description, { previous = null } = {}) {
+    this.description = description
 
     this.fullyQualifiedTypes = new Map()
     this.namespaces = new Map()
     this.orderedTypes = []
 
-    this.previous = _previous
-    this.version = _version
-
-    for (const description of types) {
-      if (!this.namespaces.has(description.namespace)) {
-        const ns = new HyperschemaNamespace(this, description.namespace)
-        this.namespaces.set(description.namespace, ns)
+    this.previous = previous
+    this.version = previous ? previous.version : 1
+    if (previous) {
+      const strippedSchema = stripVersions(previous.description.schema)
+      if (!sameObject(this.description.schema, strippedSchema)) {
+        this.version += 1
       }
-      const ns = this.namespaces.get(description.namespace)
-      const fqn = this._getFullyQualifiedName(description)
-      const type = ns.register(fqn, description)
+    }
 
-      this.fullyQualifiedTypes.set(fqn, type)
-      this.orderedTypes.push({
+    for (let i = 0; i < description.schema.length; i++) {
+      const typeDescription = description.schema[i]
+      if (!this.namespaces.has(typeDescription.namespace)) {
+        const ns = new HyperschemaNamespace(this, typeDescription.namespace)
+        this.namespaces.set(typeDescription.namespace, ns)
+      }
+      const ns = this.namespaces.get(typeDescription.namespace)
+      const fqn = this._getFullyQualifiedName(typeDescription)
+      const type = ns.register(fqn, typeDescription)
+
+      const fullDescription = {
+        description: typeDescription,
         versions: type.versions,
-        description,
         name: fqn,
         type
-      })
+      }
+      this.fullyQualifiedTypes.set(fqn, type)
+      this.orderedTypes.push(fullDescription)
     }
   }
 
@@ -243,9 +252,15 @@ module.exports = class Hyperschema {
     }
     return output
   }
+}
 
-  static fromJSON (json) {
-    if (!json.version) throw new Error('Previous version must be provided with fromJSON')
-    return new this(json.schema, { _version: json.version })
-  }
+function stripVersions (schema) {
+  return schema.map(({ versions, fields, ...strippedType }) => {
+    const strippedFields = fields?.map(({ version, ...strippedField }) => strippedField)
+    if (!strippedFields) return strippedType
+    return {
+      ...strippedType,
+      fields: strippedFields
+    }
+  })
 }

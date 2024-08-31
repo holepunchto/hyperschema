@@ -23,6 +23,14 @@ ns1.register({
     {
       name: 'bool3',
       type: 'bool'
+    },
+    {
+      name: 'bool4',
+      type: 'bool'
+    },
+    {
+      name: 'bool5',
+      type: 'bool'
     }
   ]
 })
