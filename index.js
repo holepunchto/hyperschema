@@ -126,10 +126,8 @@ class ResolvedType {
       const field = fields[i]  
       if (field.version <= structVersions.latest) continue
       if (description.compact) {
-        console.log('FIELD:', field, 'struct versions:', structVersions, 'prev:', previous?.fields[i])
         throw new Error('Cannot change fields in a compact type: ' + fqn)
       }
-      console.log('setting structVersions.latest to:', field.version)
       structVersions.latest = field.version
     }
 
@@ -199,7 +197,6 @@ module.exports = class Hyperschema {
 
   getStructVersions (type) {
     const prevType = this.previous && this.previous.fullyQualifiedTypes.get(type)
-    console.log('prev type for?', type, !!prevType)
     if (prevType) return prevType.versions
     return { first: this.version, latest: this.version }
   }
