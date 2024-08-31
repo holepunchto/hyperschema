@@ -4,6 +4,7 @@ const {
   SupportedTypes,
   getDefaultValue
 } = require('./lib/types.js')
+const generateCompactEncoders = require('./lib/codegen')
 
 class BuilderNamespace {
   constructor (builder, name) {
@@ -52,7 +53,7 @@ class ResolvedType {
     this.optionals = null
     this.flagsPosition = -1
     if (Number.isInteger(description.flagsPosition)) {
-      this.flagsPosition = description.flagsPosition  
+      this.flagsPosition = description.flagsPosition
     }
   }
 
@@ -104,10 +105,9 @@ class ResolvedType {
     const structVersions = description.versions || hyperschema.getStructVersions(fqn)
 
     for (let i = 0; i < description.fields.length; i++) {
-      const fieldDescription = description.fields[i]  
-      const type = hyperschema.resolve(fieldDescription.type)
+      const fieldDescription = description.fields[i]
 
-      let fieldVersion = fieldDescription.version || hyperschema.version 
+      let fieldVersion = fieldDescription.version || hyperschema.version
       if (previous && previous.fields[i]) {
         // TODO: Do append-only checks here
         fieldVersion = previous.fields[i].version
@@ -116,14 +116,14 @@ class ResolvedType {
       const field = {
         ...fieldDescription,
         type: hyperschema.resolve(fieldDescription.type),
-        version: fieldVersion   
+        version: fieldVersion
       }
       const position = fields.push(field) - 1
       positionMap.set(field.name, position)
     }
 
     for (let i = 0; i < fields.length; i++) {
-      const field = fields[i]  
+      const field = fields[i]
       if (field.version <= structVersions.latest) continue
       if (description.compact) {
         throw new Error('Cannot change fields in a compact type: ' + fqn)
@@ -216,25 +216,29 @@ module.exports = class Hyperschema {
     return resolved.decode(value)
   }
 
+  toCode () {
+    return generateCompactEncoders(this)
+  }
+
   toJSON () {
     const output = {
       version: this.version,
       schema: []
     }
-    for (const { name, namespace, description, type } of this.orderedTypes) {
+    for (const { description, type } of this.orderedTypes) {
       if (!description.fields) {
         output.schema.push({ ...description, versions: type.versions })
         continue
-      } 
+      }
       output.schema.push({
         ...description,
         versions: type.versions,
         fields: description.fields.map((f, i) => {
           return {
             ...f,
-            version: type.fields[i].version   
+            version: type.fields[i].version
           }
-        })   
+        })
       })
     }
     return output

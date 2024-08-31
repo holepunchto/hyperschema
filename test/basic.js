@@ -14,7 +14,6 @@ test('basic persistence', t => {
 })
 
 test('basic encoding', t => {
-  /*
   {
     const expected = { bool1: true, bool2: false, bool3: true }
     const encoded = schema.encode('@namespace-1/basic-bools', expected)
@@ -32,7 +31,6 @@ test('basic encoding', t => {
     const decoded = schema.decode('@namespace-1/basic-struct', encoded)
     t.alike(decoded, expected)
   }
-  */
   {
     const expected = {
       outerString: 'hello',

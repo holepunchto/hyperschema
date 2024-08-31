@@ -4,7 +4,6 @@ const fs = require('fs')
 const sameObject = require('same-object')
 
 const Hyperschema = require('.')
-const generateCompactEncoders = require('./lib/codegen')
 
 const args = process.argv.slice(2)
 const input = args[0]
@@ -48,7 +47,7 @@ if (prevJson && sameObject(prevJson.schema, nextJson.schema)) {
 }
 
 fs.writeFileSync(outputJsonPath, JSON.stringify(nextJson, null, 2) + '\n')
-fs.writeFileSync(outputCencPath, generateCompactEncoders(next, nextJson.version))
+fs.writeFileSync(outputCencPath, next.toCode())
 
 console.log('Schema JSON snapshot written to ' + outputJsonPath)
 console.log('Compact encodings written to ' + outputCencPath)
