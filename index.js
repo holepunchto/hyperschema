@@ -32,117 +32,193 @@ class Builder {
 }
 
 class ResolvedType {
-  constructor (hyperschema, description, fqn, versions, opts = {}) {
-    const { primitive, struct, fields, positionMap } = opts
+  constructor (hyperschema, description, fqn) {
     this.hyperschema = hyperschema
     this.description = description
-    this.name = description.name
-    this.namespace = description.namespace
+    this.name = description?.name || fqn
+    this.namespace = description?.namespace || ''
     this.fqn = fqn
 
-    this.fields = fields
-    this.positionMap = positionMap
-    this.versions = versions
+    this.isPrimitive = false
+    this.isStruct = false
+    this.isAlias = false
+    this.isEnum = false
 
-    this.compact = !!description.compact
-    this.struct = !!struct
-    this.primitive = !!primitive
+    this.version = 1
+    this.previous = null
+    if (hyperschema?.previous) {
+      this.previous = hyperschema.previous.fullyQualifiedTypes.get(fqn)  
+    }
+  }
+
+  toJSON () {
+    return {
+      name: this.name,
+      namespace: this.namespace
+    }
+  }
+}
+
+class Primitive extends ResolvedType {
+  constructor (name) {
+    super(null, null, name)
+    this.isPrimitive = true
     this.bool = this.name === 'bool'
     this.default = getDefaultValue(this.name)
+  }
+  
+  static AllPrimitives = new Map([...SupportedTypes].map(name => {
+    return [name, new this(name)]
+  }))
+}
 
-    this.encodables = null
-    this.optionals = null
+class Alias extends ResolvedType {
+  constructor (hyperschema, description, fqn) {
+    super(hyperschema, description, fqn)
+    this.isAlias = true
+    this.type = hyperschema.resolve(description.alias)
+
+    this.version = 1
+    if (this.previous) {
+      if (this.previous.type.name !== this.type.name) {
+        throw new Error(`Remapping an alias: ${fqn}`)
+      }
+      this.version = this.previous.version
+    }
+  }
+
+  toJSON () {
+    return {
+      name: this.name,
+      namespace: this.namespace,
+      alias: this.type.fqn,
+      version: this.version
+    }
+  }
+}
+
+class Enum extends ResolvedType {
+  constructor (hyperschema, description, fqn) {
+    super(hyperschema, description, fqn)
+    this.isEnum = true
+    this.versions = description.versions || []
+
+    if (!description.versions) {
+      for (let i = 0; i < description.values.length; i++) {
+        this.versions.push(hyperschema.version)
+      }
+    }
+
+    if (this.previous) {
+      if (this.previous.versions.length > this.versions.length) {
+        throw new Error(`Shrinking an enum: ${this.fqn}`)
+      }
+      for (let i = 0; i < this.previous.versions.length; i++) {
+        const prev = this.previous.description.values[i]
+        const current = this.description.values[i]
+        if (prev.name !== current.name) {
+          throw new Error(`Renaming an enum value: ${this.fqn}/${prev.name}`)  
+        }
+        this.versions[i] = this.previous.versions[i]
+      }
+    }
+  }  
+
+  toJSON () {
+    return {
+      enum: true,
+      name: this.name,
+      namespace: this.namespace,
+      values: this.description.values,
+      versions: this.versions
+    }
+  }
+}
+
+class StructField {
+  constructor (hyperschema, struct, position, description) {
+    this.hyperschema = hyperschema  
+    this.description = description
+    this.position = position
+    this.struct = struct
+
+    this.type = hyperschema.resolve(description.type)
+    this.framed = this.type.isStruct && !this.type.description.compact
+
+    this.version = description.version || 1
+
+    if (this.struct.previous) {
+      const tag = `${this.struct.fqn}/${this.description.name}` 
+      const prevField = this.struct.previous.fields[position]  
+      if (prevField) {
+        if (prevField.description.type !== this.description.type) {
+          throw new Error(`Field was modified: ${tag}`)
+        } else if (!prevField.description.required && this.description.required) {
+          throw new Error(`Optional field was made required: ${tag}`)
+        } 
+        this.version = prevField.version
+      } else {
+        this.version += 1
+      }
+    }
+  }
+
+  toJSON () {
+    return {
+      name: this.description.name,
+      required: this.description.required,
+      array: this.description.array,
+      type: this.type.fqn,
+      version: this.version
+    }
+  }
+}
+
+class Struct extends ResolvedType {
+  constructor (hyperschema, description, fqn) {
+    super(hyperschema, description, fqn)
+    this.isStruct = true
+    this.default = null
+
+    this.fields = []
+    this.optionals = []
     this.flagsPosition = -1
+    this.compact = !!description.compact
+
     if (Number.isInteger(description.flagsPosition)) {
       this.flagsPosition = description.flagsPosition
     }
-  }
 
-  preprocess () {
-    if (this.encodables) return
-    this.encodables = new Array(this.fields.length)
-    this.optionals = []
-
-    for (let i = 0; i < this.fields.length; i++) {
-      const field = this.fields[i]
-      const framed = !field.type.primitive && !field.type.compact
-      const optional = !field.required
-      const array = !!field.array
-
-      let encoding = field.type.encoding
-      if (array) encoding = c.array(encoding)
-      if (framed) encoding = c.frame(encoding)
-
-      let flag = 0
-      if (optional) {
-        if (this.flagsPosition === -1) {
-          this.flagsPosition = i
-        }
-        flag = 2 ** this.optionals.length
-        this.optionals.push({ name: field.name, version: field.version, flag })
-      }
-      this.encodables[i] = {
-        default: array ? null : field.type.default,
-        version: field.version,
-        fqn: field.type.fqn,
-        type: field.type,
-        name: field.name,
-        encoding,
-        optional,
-        framed,
-        array,
-        flag
+    if (this.previous) {
+      const oldLength = this.previous.fields.length
+      const newLength = this.description.fields.length
+      if (oldLength > newLength) {
+        throw new Error(`A field was removed: ${this.struct.fqn}`)  
       }
     }
-  }
-
-  static fromDescription (hyperschema, fqn, description) {
-    if (description.alias) return hyperschema.resolve(description.alias)
-
-    const previous = hyperschema.previous ? hyperschema.previous.fullyQualifiedTypes.get(fqn) : null
-
-    const fields = []
-    const positionMap = new Map()
-    const structVersions = description.versions || hyperschema.getStructVersions(fqn)
-
     for (let i = 0; i < description.fields.length; i++) {
       const fieldDescription = description.fields[i]
-
-      let fieldVersion = fieldDescription.version || hyperschema.version
-      if (previous && previous.fields[i]) {
-        // TODO: Do append-only checks here
-        fieldVersion = previous.fields[i].version
+      const field = new StructField(hyperschema, this, i, fieldDescription) 
+      this.fields.push(field)  
+      if (!fieldDescription.required) {
+        const flag = 2 ** this.optionals.length
+        this.optionals.push({ field, flag })  
+        if (this.flagsPosition === -1) {
+          this.flagsPosition = i   
+        }
       }
-
-      const field = {
-        ...fieldDescription,
-        type: hyperschema.resolve(fieldDescription.type),
-        version: fieldVersion
-      }
-      const position = fields.push(field) - 1
-      positionMap.set(field.name, position)
     }
-
-    for (let i = 0; i < fields.length; i++) {
-      const field = fields[i]
-      if (field.version <= structVersions.latest) continue
-      if (description.compact) {
-        throw new Error('Cannot change fields in a compact type: ' + fqn)
-      }
-      structVersions.latest = field.version
-    }
-
-    return new this(hyperschema, description, fqn, structVersions, {
-      struct: true,
-      positionMap,
-      fields
-    })
   }
 
-  static PrimitiveResolvedTypes = new Map([...SupportedTypes].map(name => {
-    const description = { name, namespace: null }
-    return [name, new this(null, description, name, { first: 1, latest: 1 }, { primitive: true })]
-  }))
+  toJSON () {
+    return {
+      name: this.name,
+      namespace: this.namespace,
+      compact: this.compact,
+      flagsPosition: this.flagsPosition,
+      fields: this.fields.map(f => f.toJSON()) 
+    }
+  }
 }
 
 class HyperschemaNamespace {
@@ -154,7 +230,14 @@ class HyperschemaNamespace {
 
   register (fqn, description) {
     if (this.types.has(description.name)) throw new Error('Duplicate type description')
-    const type = ResolvedType.fromDescription(this.hyperschema, fqn, description)
+    let type = null
+    if (description.alias) {
+      type = new Alias(this.hyperschema, description, fqn)
+    } else if (description.enum) {
+      type = new Enum(this.hyperschema, description, fqn)  
+    } else {
+      type = new Struct(this.hyperschema, description, fqn)
+    }
     this.types.set(description.name, type)
     return type
   }
@@ -171,13 +254,13 @@ module.exports = class Hyperschema {
     this.orderedTypes = []
 
     this.previous = previous
-    this.version = previous ? previous.version : 1
-    if (previous) {
-      const strippedSchema = stripVersions(previous.description.schema)
-      if (!sameObject(this.description.schema, strippedSchema)) {
-        this.version += 1
-      }
+    this.version = 1
+    if (description.version) {
+      this.version = description.version
+    } else if (previous) {
+      this.version = previous.version + 1
     }
+    console.log('THIS.VERSION:', this.version)
 
     for (let i = 0; i < description.schema.length; i++) {
       const typeDescription = description.schema[i]
@@ -191,7 +274,6 @@ module.exports = class Hyperschema {
 
       const fullDescription = {
         description: typeDescription,
-        versions: type.versions,
         name: fqn,
         type
       }
@@ -211,7 +293,7 @@ module.exports = class Hyperschema {
   }
 
   resolve (type) {
-    if (ResolvedType.PrimitiveResolvedTypes.has(type)) return ResolvedType.PrimitiveResolvedTypes.get(type)
+    if (Primitive.AllPrimitives.has(type)) return Primitive.AllPrimitives.get(type)
     return this.fullyQualifiedTypes.get(type)
   }
 
@@ -234,21 +316,8 @@ module.exports = class Hyperschema {
       version: this.version,
       schema: []
     }
-    for (const { description, type } of this.orderedTypes) {
-      if (!description.fields) {
-        output.schema.push({ ...description, versions: type.versions })
-        continue
-      }
-      output.schema.push({
-        ...description,
-        versions: type.versions,
-        fields: description.fields.map((f, i) => {
-          return {
-            ...f,
-            version: type.fields[i].version
-          }
-        })
-      })
+    for (const { type } of this.orderedTypes) {
+      output.schema.push(type.toJSON())
     }
     return output
   }

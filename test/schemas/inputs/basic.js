@@ -5,12 +5,24 @@ const ns1 = schema.namespace('namespace-1')
 const ns2 = schema.namespace('namespace-2')
 
 ns2.register({
+  name: 'basic-enum',
+  enum: true,
+  values: [
+    'value1',
+    'value2',
+    'value3',
+    'value4'
+  ]
+})
+
+ns2.register({
   name: 'basic-alias',
   alias: 'string'
 })
 
 ns1.register({
   name: 'basic-bools',
+  compact: true,
   fields: [
     {
       name: 'bool1',
@@ -26,10 +38,6 @@ ns1.register({
     },
     {
       name: 'bool4',
-      type: 'bool'
-    },
-    {
-      name: 'bool5',
       type: 'bool'
     }
   ]

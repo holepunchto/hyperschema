@@ -43,8 +43,8 @@ if (previous && (next.version === previous.version)) {
 
 const nextJson = next.toJSON()
 fs.writeFileSync(outputJsonPath, JSON.stringify(nextJson, null, 2) + '\n')
-fs.writeFileSync(outputCencPath, next.toCode())
+// fs.writeFileSync(outputCencPath, next.toCode())
 
 console.log('Schema JSON snapshot written to ' + outputJsonPath)
-console.log('Compact encodings written to ' + outputCencPath)
+// console.log('Compact encodings written to ' + outputCencPath)
 process.exit(0)
