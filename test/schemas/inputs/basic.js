@@ -16,6 +16,17 @@ ns2.register({
 })
 
 ns2.register({
+  name: 'basic-enum-2',
+  enum: true,
+  values: [
+    'value1',
+    'value2',
+    'value3',
+    'value4'
+  ]
+})
+
+ns2.register({
   name: 'basic-alias',
   alias: 'string'
 })

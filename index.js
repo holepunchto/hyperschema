@@ -74,6 +74,7 @@ class Alias extends ResolvedType {
     super(hyperschema, description, fqn)
     this.isAlias = true
     this.type = hyperschema.resolve(description.alias)
+    this.default = this.type.default
 
     this.version = 1
     if (this.previous) {
@@ -98,6 +99,7 @@ class Enum extends ResolvedType {
   constructor (hyperschema, description, fqn) {
     super(hyperschema, description, fqn)
     this.isEnum = true
+    this.values = description.values
     this.versions = description.versions || []
 
     if (!description.versions) {
@@ -126,21 +128,26 @@ class Enum extends ResolvedType {
       enum: true,
       name: this.name,
       namespace: this.namespace,
-      values: this.description.values,
+      values: this.values,
       versions: this.versions
     }
   }
 }
 
 class StructField {
-  constructor (hyperschema, struct, position, description) {
+  constructor (hyperschema, struct, position, flag, description) {
     this.hyperschema = hyperschema
     this.description = description
+    this.name = this.description.name
+
     this.position = position
     this.struct = struct
+    this.flag = flag
+    this.optional = flag !== 0
 
     this.type = hyperschema.resolve(description.type)
     this.framed = this.type.isStruct && !this.type.description.compact
+    this.array = !!this.description.array
 
     this.version = description.version || hyperschema.version
 
@@ -197,11 +204,11 @@ class Struct extends ResolvedType {
     }
     for (let i = 0; i < description.fields.length; i++) {
       const fieldDescription = description.fields[i]
-      const field = new StructField(hyperschema, this, i, fieldDescription)
+      const flag = !fieldDescription.required ? 2 ** this.optionals.length : 0
+      const field = new StructField(hyperschema, this, i, flag, fieldDescription)
       this.fields.push(field)
       if (!fieldDescription.required) {
-        const flag = 2 ** this.optionals.length
-        this.optionals.push({ field, flag })
+        this.optionals.push(field)
         if (this.flagsPosition === -1) {
           this.flagsPosition = i
         }
