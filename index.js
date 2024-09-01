@@ -2,7 +2,7 @@ const {
   SupportedTypes,
   getDefaultValue
 } = require('./lib/types.js')
-const generateCompactEncoders = require('./lib/codegen')
+const generateCode = require('./lib/codegen')
 
 class BuilderNamespace {
   constructor (builder, name) {
@@ -313,7 +313,7 @@ module.exports = class Hyperschema {
   }
 
   toCode () {
-    return generateCompactEncoders(this)
+    return generateCode(this)
   }
 
   toJSON () {
