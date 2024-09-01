@@ -1,6 +1,3 @@
-const c = require('compact-encoding')
-const sameObject = require('same-object')
-
 const {
   SupportedTypes,
   getDefaultValue
@@ -47,7 +44,7 @@ class ResolvedType {
     this.version = 1
     this.previous = null
     if (hyperschema?.previous) {
-      this.previous = hyperschema.previous.fullyQualifiedTypes.get(fqn)  
+      this.previous = hyperschema.previous.fullyQualifiedTypes.get(fqn)
     }
   }
 
@@ -66,7 +63,7 @@ class Primitive extends ResolvedType {
     this.bool = this.name === 'bool'
     this.default = getDefaultValue(this.name)
   }
-  
+
   static AllPrimitives = new Map([...SupportedTypes].map(name => {
     return [name, new this(name)]
   }))
@@ -116,13 +113,13 @@ class Enum extends ResolvedType {
       for (let i = 0; i < this.previous.versions.length; i++) {
         const prev = this.previous.description.values[i]
         const current = this.description.values[i]
-        if (prev.name !== current.name) {
-          throw new Error(`Renaming an enum value: ${this.fqn}/${prev.name}`)  
+        if (prev !== current) {
+          throw new Error(`Renaming an enum value: ${this.fqn}/${prev}`)
         }
         this.versions[i] = this.previous.versions[i]
       }
     }
-  }  
+  }
 
   toJSON () {
     return {
@@ -137,7 +134,7 @@ class Enum extends ResolvedType {
 
 class StructField {
   constructor (hyperschema, struct, position, description) {
-    this.hyperschema = hyperschema  
+    this.hyperschema = hyperschema
     this.description = description
     this.position = position
     this.struct = struct
@@ -145,17 +142,17 @@ class StructField {
     this.type = hyperschema.resolve(description.type)
     this.framed = this.type.isStruct && !this.type.description.compact
 
-    this.version = description.version || 1
+    this.version = description.version || hyperschema.version
 
     if (this.struct.previous) {
-      const tag = `${this.struct.fqn}/${this.description.name}` 
-      const prevField = this.struct.previous.fields[position]  
+      const tag = `${this.struct.fqn}/${this.description.name}`
+      const prevField = this.struct.previous.fields[position]
       if (prevField) {
         if (prevField.description.type !== this.description.type) {
           throw new Error(`Field was modified: ${tag}`)
         } else if (!prevField.description.required && this.description.required) {
           throw new Error(`Optional field was made required: ${tag}`)
-        } 
+        }
         this.version = prevField.version
       } else {
         this.version += 1
@@ -193,18 +190,20 @@ class Struct extends ResolvedType {
       const oldLength = this.previous.fields.length
       const newLength = this.description.fields.length
       if (oldLength > newLength) {
-        throw new Error(`A field was removed: ${this.struct.fqn}`)  
+        throw new Error(`A field was removed: ${this.fqn}`)
+      } else if (this.compact && (oldLength !== newLength)) {
+        throw new Error(`A compact struct was expanded: ${this.fqn}`)
       }
     }
     for (let i = 0; i < description.fields.length; i++) {
       const fieldDescription = description.fields[i]
-      const field = new StructField(hyperschema, this, i, fieldDescription) 
-      this.fields.push(field)  
+      const field = new StructField(hyperschema, this, i, fieldDescription)
+      this.fields.push(field)
       if (!fieldDescription.required) {
         const flag = 2 ** this.optionals.length
-        this.optionals.push({ field, flag })  
+        this.optionals.push({ field, flag })
         if (this.flagsPosition === -1) {
-          this.flagsPosition = i   
+          this.flagsPosition = i
         }
       }
     }
@@ -216,7 +215,7 @@ class Struct extends ResolvedType {
       namespace: this.namespace,
       compact: this.compact,
       flagsPosition: this.flagsPosition,
-      fields: this.fields.map(f => f.toJSON()) 
+      fields: this.fields.map(f => f.toJSON())
     }
   }
 }
@@ -234,7 +233,7 @@ class HyperschemaNamespace {
     if (description.alias) {
       type = new Alias(this.hyperschema, description, fqn)
     } else if (description.enum) {
-      type = new Enum(this.hyperschema, description, fqn)  
+      type = new Enum(this.hyperschema, description, fqn)
     } else {
       type = new Struct(this.hyperschema, description, fqn)
     }
@@ -260,7 +259,6 @@ module.exports = class Hyperschema {
     } else if (previous) {
       this.version = previous.version + 1
     }
-    console.log('THIS.VERSION:', this.version)
 
     for (let i = 0; i < description.schema.length; i++) {
       const typeDescription = description.schema[i]
@@ -319,17 +317,14 @@ module.exports = class Hyperschema {
     for (const { type } of this.orderedTypes) {
       output.schema.push(type.toJSON())
     }
+    if (this.previous) {
+      const curStr = JSON.stringify(output.schema)
+      const prevStr = this.previous ? JSON.stringify(this.previous.description.schema) : null
+      if (curStr === prevStr) {
+        // If nothing has changed between versions, do not bump it
+        output.version -= 1
+      }
+    }
     return output
   }
-}
-
-function stripVersions (schema) {
-  return schema.map(({ versions, fields, ...strippedType }) => {
-    const strippedFields = fields?.map(({ version, ...strippedField }) => strippedField)
-    if (!strippedFields) return strippedType
-    return {
-      ...strippedType,
-      fields: strippedFields
-    }
-  })
 }

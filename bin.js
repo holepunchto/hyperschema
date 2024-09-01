@@ -35,16 +35,16 @@ if (exists) {
   previous = new Hyperschema(previousJson)
 }
 const next = new Hyperschema(require(inputSchemaPath), { previous })
+const nextJson = next.toJSON()
 
-if (previous && (next.version === previous.version)) {
+if (previous && (nextJson.version === previousJson.version)) {
   console.log('Schema has not been changed.')
   process.exit(0)
 }
 
-const nextJson = next.toJSON()
 fs.writeFileSync(outputJsonPath, JSON.stringify(nextJson, null, 2) + '\n')
-// fs.writeFileSync(outputCencPath, next.toCode())
+fs.writeFileSync(outputCencPath, next.toCode())
 
 console.log('Schema JSON snapshot written to ' + outputJsonPath)
-// console.log('Compact encodings written to ' + outputCencPath)
+console.log('Compact encodings written to ' + outputCencPath)
 process.exit(0)

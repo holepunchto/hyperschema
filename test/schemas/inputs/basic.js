@@ -65,13 +65,15 @@ ns1.register({
     {
       name: 'basicAlias',
       type: '@namespace-2/basic-alias'
-    }
-    /*
+    },
     {
       name: 'anotherString',
       type: 'string'
+    },
+    {
+      name: 'andAnother',
+      type: 'uint'
     }
-    */
   ]
 })
 
