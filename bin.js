@@ -43,7 +43,10 @@ if (previous && (nextJson.version === previousJson.version)) {
 }
 
 fs.writeFileSync(outputJsonPath, JSON.stringify(nextJson, null, 2) + '\n')
-fs.writeFileSync(outputCencPath, next.toCode())
+
+let code = next.toCode()
+code += 'module.exports = hyperschema\n'
+fs.writeFileSync(outputCencPath, code)
 
 console.log('Schema JSON snapshot written to ' + outputJsonPath)
 console.log('Compact encodings written to ' + outputCencPath)
