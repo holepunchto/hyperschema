@@ -34,7 +34,8 @@ if (exists) {
   previousJson = require(outputJsonPath)
   previous = Hyperschema.fromJSON(previousJson)
 }
-const next = Hyperschema.fromJSON(require(inputSchemaPath), { previous })
+
+const next = require(inputSchemaPath)({ previous })
 const nextJson = next.toJSON()
 
 if (previous && (nextJson.version === previousJson.version)) {

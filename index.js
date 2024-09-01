@@ -138,7 +138,7 @@ class StructField {
         }
         this.version = prevField.version
       } else {
-        this.version += 1
+        this.version = hyperschema.version
       }
     }
   }
@@ -242,6 +242,7 @@ module.exports = class Hyperschema {
     } else {
       type = new Struct(this, description, fqn)
     }
+
     const fullDescription = {
       description,
       name: fqn,
@@ -249,6 +250,7 @@ module.exports = class Hyperschema {
     }
     this.types.set(fqn, type)
     this.orderedTypes.push(fullDescription)
+
     return type
   }
 
