@@ -1,5 +1,5 @@
 const Hyperschema = require('../../..')
-const schema = new Hyperschema.Builder()
+const schema = new Hyperschema()
 
 const ns1 = schema.namespace('namespace-1')
 const ns2 = schema.namespace('namespace-2')
@@ -22,7 +22,8 @@ ns2.register({
     'value1',
     'value2',
     'value3',
-    'value4'
+    'value4',
+    'value5'
   ]
 })
 

@@ -4,30 +4,6 @@ const {
 } = require('./lib/types.js')
 const generateCode = require('./lib/codegen')
 
-class BuilderNamespace {
-  constructor (builder, name) {
-    this.builder = builder
-    this.name = name
-  }
-
-  register (description) {
-    this.builder.types.push({ ...description, namespace: this.name })
-  }
-}
-class Builder {
-  constructor () {
-    this.types = []
-  }
-
-  namespace (name) {
-    return new BuilderNamespace(this, name)
-  }
-
-  toJSON () {
-    return { version: 0, schema: this.types }
-  }
-}
-
 class ResolvedType {
   constructor (hyperschema, description, fqn) {
     this.hyperschema = hyperschema
@@ -44,7 +20,7 @@ class ResolvedType {
     this.version = 1
     this.previous = null
     if (hyperschema?.previous) {
-      this.previous = hyperschema.previous.fullyQualifiedTypes.get(fqn)
+      this.previous = hyperschema.previous.types.get(fqn)
     }
   }
 
@@ -231,85 +207,61 @@ class HyperschemaNamespace {
   constructor (hyperschema, name) {
     this.hyperschema = hyperschema
     this.name = name
-    this.types = new Map()
   }
 
-  register (fqn, description) {
-    if (this.types.has(description.name)) throw new Error('Duplicate type description')
-    let type = null
-    if (description.alias) {
-      type = new Alias(this.hyperschema, description, fqn)
-    } else if (description.enum) {
-      type = new Enum(this.hyperschema, description, fqn)
-    } else {
-      type = new Struct(this.hyperschema, description, fqn)
-    }
-    this.types.set(description.name, type)
-    return type
+  register (description) {
+    return this.hyperschema.register({
+      ...description,
+      namespace: this.name
+    })
   }
 }
 
 module.exports = class Hyperschema {
-  static Builder = Builder
-
-  constructor (description, { previous = null } = {}) {
-    this.description = description
-
-    this.fullyQualifiedTypes = new Map()
+  constructor ({ version = 1, previous = null } = {}) {
     this.namespaces = new Map()
+    this.types = new Map()
     this.orderedTypes = []
 
     this.previous = previous
-    this.version = 1
-    if (description.version) {
-      this.version = description.version
-    } else if (previous) {
-      this.version = previous.version + 1
-    }
-
-    for (let i = 0; i < description.schema.length; i++) {
-      const typeDescription = description.schema[i]
-      if (!this.namespaces.has(typeDescription.namespace)) {
-        const ns = new HyperschemaNamespace(this, typeDescription.namespace)
-        this.namespaces.set(typeDescription.namespace, ns)
-      }
-      const ns = this.namespaces.get(typeDescription.namespace)
-      const fqn = this._getFullyQualifiedName(typeDescription)
-      const type = ns.register(fqn, typeDescription)
-
-      const fullDescription = {
-        description: typeDescription,
-        name: fqn,
-        type
-      }
-      this.fullyQualifiedTypes.set(fqn, type)
-      this.orderedTypes.push(fullDescription)
-    }
+    this.version = previous ? previous.version + 1 : version
   }
 
   _getFullyQualifiedName (description) {
     return '@' + description.namespace + '/' + description.name
   }
 
-  getStructVersions (type) {
-    const prevType = this.previous && this.previous.fullyQualifiedTypes.get(type)
-    if (prevType) return prevType.versions
-    return { first: this.version, latest: this.version }
+  register (description) {
+    const fqn = this._getFullyQualifiedName(description)
+    if (this.types.has(fqn)) throw new Error('Duplicate type description')
+    let type = null
+    if (description.alias) {
+      type = new Alias(this, description, fqn)
+    } else if (description.enum) {
+      type = new Enum(this, description, fqn)
+    } else {
+      type = new Struct(this, description, fqn)
+    }
+    const fullDescription = {
+      description,
+      name: fqn,
+      type
+    }
+    this.types.set(fqn, type)
+    this.orderedTypes.push(fullDescription)
+    return type
   }
 
-  resolve (type) {
-    if (Primitive.AllPrimitives.has(type)) return Primitive.AllPrimitives.get(type)
-    return this.fullyQualifiedTypes.get(type)
+  namespace (name) {
+    if (this.namespaces.has(name)) throw new Error('Namespace already exists')
+    const ns = new HyperschemaNamespace(this, name)
+    this.namespaces.set(name, ns)
+    return ns
   }
 
-  encode (type, value) {
-    const resolved = this.fullyQualifiedTypes.get(type)
-    return resolved.encode(value)
-  }
-
-  decode (type, value) {
-    const resolved = this.fullyQualifiedTypes.get(type)
-    return resolved.decode(value)
+  resolve (fqn) {
+    if (Primitive.AllPrimitives.has(fqn)) return Primitive.AllPrimitives.get(fqn)
+    return this.types.get(fqn)
   }
 
   toCode () {
@@ -326,12 +278,20 @@ module.exports = class Hyperschema {
     }
     if (this.previous) {
       const curStr = JSON.stringify(output.schema)
-      const prevStr = this.previous ? JSON.stringify(this.previous.description.schema) : null
+      const prevStr = this.previous ? JSON.stringify(this.previous.toJSON().schema) : null
       if (curStr === prevStr) {
         // If nothing has changed between versions, do not bump it
         output.version -= 1
       }
     }
     return output
+  }
+
+  static fromJSON (json, opts) {
+    const schema = new this({ ...opts, version: json.version })
+    for (const typeDescription of json.schema) {
+      schema.register(typeDescription)
+    }
+    return schema
   }
 }

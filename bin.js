@@ -32,9 +32,9 @@ let previousJson = null
 let previous = null
 if (exists) {
   previousJson = require(outputJsonPath)
-  previous = new Hyperschema(previousJson)
+  previous = Hyperschema.fromJSON(previousJson)
 }
-const next = new Hyperschema(require(inputSchemaPath), { previous })
+const next = Hyperschema.fromJSON(require(inputSchemaPath), { previous })
 const nextJson = next.toJSON()
 
 if (previous && (nextJson.version === previousJson.version)) {
