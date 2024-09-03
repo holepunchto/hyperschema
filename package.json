@@ -22,7 +22,6 @@
   "dependencies": {
     "compact-encoding": "^2.15.0",
     "generate-object-property": "^1.2.0",
-    "hyperschema": "file:../../../.nvm/versions/node/v20.13.0/lib/node_modules/hyperschema",
     "same-object": "^1.0.2"
   },
   "devDependencies": {

@@ -161,6 +161,8 @@ class Struct extends ResolvedType {
     this.default = null
 
     this.fields = []
+    this.fieldsByName = new Map()
+
     this.optionals = []
     this.flagsPosition = -1
     this.compact = !!description.compact
@@ -182,7 +184,10 @@ class Struct extends ResolvedType {
       const fieldDescription = description.fields[i]
       const flag = !fieldDescription.required ? 2 ** this.optionals.length : 0
       const field = new StructField(hyperschema, this, i, flag, fieldDescription)
+
       this.fields.push(field)
+      this.fieldsByName.set(field.name, field)
+
       if (!fieldDescription.required) {
         this.optionals.push(field)
         if (this.flagsPosition === -1) {
@@ -261,9 +266,11 @@ module.exports = class Hyperschema {
     return ns
   }
 
-  resolve (fqn) {
+  resolve (fqn, { aliases = true } = {}) {
     if (Primitive.AllPrimitives.has(fqn)) return Primitive.AllPrimitives.get(fqn)
-    return this.types.get(fqn)
+    const type = this.types.get(fqn)
+    if (!aliases && type.isAlias) return type.type
+    return type
   }
 
   toCode () {
