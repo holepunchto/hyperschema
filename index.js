@@ -273,8 +273,8 @@ module.exports = class Hyperschema {
     return type
   }
 
-  toCode () {
-    return generateCode(this)
+  toCode (opts) {
+    return generateCode(this, opts)
   }
 
   toJSON () {
