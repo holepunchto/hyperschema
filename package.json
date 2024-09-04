@@ -22,6 +22,7 @@
   "dependencies": {
     "compact-encoding": "^2.15.0",
     "generate-object-property": "^1.2.0",
+    "generate-string": "^1.0.1",
     "same-object": "^1.0.2"
   },
   "devDependencies": {
