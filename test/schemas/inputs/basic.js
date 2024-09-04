@@ -59,6 +59,17 @@ module.exports = function createSchema (opts) {
   })
 
   ns1.register({
+    name: 'basic-no-optionals',
+    fields: [
+      {
+        name: 'id',
+        type: 'uint',
+        required: true
+      }
+    ]
+  })
+
+  ns1.register({
     name: 'basic-struct',
     flagsPosition: 0,
     fields: [
