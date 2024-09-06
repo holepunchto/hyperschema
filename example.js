@@ -1,6 +1,6 @@
 const Hyperschema = require('../../..')
 
-module.exports = function createSchema (opts) {
+module.exports = function createSchema (dir) {
   const schema = new Hyperschema(opts)
 
   const ns1 = schema.namespace('namespace-1')

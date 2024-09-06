@@ -1,8 +1,14 @@
+const fs = require('fs')
+const p = require('path')
+
 const {
   SupportedTypes,
   getDefaultValue
 } = require('./lib/types.js')
 const generateCode = require('./lib/codegen')
+
+const JSON_FILE_NAME = 'schema.json'
+const CODE_FILE_NAME = 'index.js'
 
 class ResolvedType {
   constructor (hyperschema, description, fqn) {
@@ -223,13 +229,15 @@ class HyperschemaNamespace {
 }
 
 module.exports = class Hyperschema {
-  constructor ({ version = 1, previous = null } = {}) {
+  constructor (previous) {
+    this.previous = previous
+    this.version = previous ? previous.version + 1 : 1
+
     this.namespaces = new Map()
     this.types = new Map()
     this.orderedTypes = []
 
-    this.previous = previous
-    this.version = previous ? previous.version + 1 : version
+    this._frozen = false
   }
 
   _getFullyQualifiedName (description) {
@@ -254,7 +262,9 @@ module.exports = class Hyperschema {
       type
     }
     this.types.set(fqn, type)
-    this.orderedTypes.push(fullDescription)
+    if (!this._frozen) {
+      this.orderedTypes.push(fullDescription)
+    }
 
     return type
   }
@@ -273,8 +283,12 @@ module.exports = class Hyperschema {
     return type
   }
 
-  toCode (opts) {
-    return generateCode(this, opts)
+  freeze () {
+    this._frozen = true
+  }
+
+  toCode () {
+    return generateCode(this)
   }
 
   toJSON () {
@@ -296,11 +310,34 @@ module.exports = class Hyperschema {
     return output
   }
 
-  static fromJSON (json, opts) {
-    const schema = new this({ ...opts, version: json.version })
+  static toDisk (hyperschema, dir) {
+    const jsonPath = p.join(p.resolve(dir), JSON_FILE_NAME)
+    const codePath = p.join(p.resolve(dir), CODE_FILE_NAME)
+    fs.writeFileSync(jsonPath, JSON.stringify(hyperschema.toJSON(), null, 2), { encoding: 'utf-8' })
+    fs.writeFileSync(codePath, hyperschema.toCode(), { encoding: 'utf-8' })
+  }
+
+  static from (json) {
+    let previous = null
+    if (typeof json === 'string') {
+      const jsonFilePath = p.join(p.resolve(previous), JSON_FILE_NAME)
+      let exists = false
+      try {
+        fs.statSync(jsonFilePath)
+        exists = true
+      } catch (err) {
+        if (err.code !== 'ENOENT') throw err
+      }
+      if (exists) previous = new this(JSON.parse(fs.readFileSync(jsonFilePath)))
+    } else {
+      previous = new this(json)
+    }
+
+    const schema = new this(previous)
     for (const typeDescription of json.schema) {
       schema.register(typeDescription)
     }
+
     return schema
   }
 }

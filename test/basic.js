@@ -1,48 +1,44 @@
 const test = require('brittle')
 
-const Hyperschema = require('..')
+const { createTestSchema } = require('./helpers')
 
-const schema = require('./schemas/basic.js')
+test.solo('basic struct, all required fields, version bump', async t => {
+  const schema = await createTestSchema(t)
 
-test('basic persistence', t => {
-  const json1 = schema.toJSON()
+  schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: 'uint',
+          required: true
+        }
+      ]
+    })
+  })
 
-  const schema2 = Hyperschema.fromJSON(json1)
-  const json2 = schema2.toJSON()
+  t.is(schema.version, 1)
 
-  t.alike(json1, json2)
-})
+  schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: 'uint',
+          required: true
+        },
+        {
+          name: 'field2',
+          type: 'uint',
+          required: true
+        }
+      ]
+    })
+  })
 
-test('basic encoding', t => {
-  {
-    const expected = { bool1: true, bool2: false, bool3: true }
-    const encoded = schema.encode('@namespace-1/basic-bools', expected)
-    const decoded = schema.decode('@namespace-1/basic-bools', encoded)
-    t.alike(decoded, expected)
-  }
-  {
-    const expected = {
-      id: 10,
-      basicString: 'hello world',
-      basicArray: [1, 2, 3, 4, 5],
-      basicAlias: 'hello again'
-    }
-    const encoded = schema.encode('@namespace-1/basic-struct', expected)
-    const decoded = schema.decode('@namespace-1/basic-struct', encoded)
-    t.alike(decoded, expected)
-  }
-  {
-    const expected = {
-      outerString: 'hello',
-      embedded: {
-        id: 20,
-        basicString: 'hi',
-        basicArray: null,
-        basicAlias: null
-      }
-    }
-    const encoded = schema.encode('@namespace-1/basic-embedded-struct', expected)
-    const decoded = schema.decode('@namespace-1/basic-embedded-struct', encoded)
-    t.alike(decoded, expected)
-  }
+  t.is(schema.version, 2)
 })
