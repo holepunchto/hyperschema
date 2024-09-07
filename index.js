@@ -11,23 +11,20 @@ const JSON_FILE_NAME = 'schema.json'
 const CODE_FILE_NAME = 'index.js'
 
 class ResolvedType {
-  constructor (hyperschema, description, fqn) {
+  constructor (hyperschema, fqn, description, existing) {
     this.hyperschema = hyperschema
     this.description = description
     this.name = description?.name || fqn
     this.namespace = description?.namespace || ''
+    this.derived = description.derived
+    this.existing = existing
     this.fqn = fqn
 
     this.isPrimitive = false
     this.isStruct = false
     this.isAlias = false
-    this.isEnum = false
 
-    this.version = 1
-    this.previous = null
-    if (hyperschema?.previous) {
-      this.previous = hyperschema.previous.types.get(fqn)
-    }
+    this.version = -1
   }
 
   toJSON () {
@@ -40,7 +37,7 @@ class ResolvedType {
 
 class Primitive extends ResolvedType {
   constructor (name) {
-    super(null, null, name)
+    super(null, name, name, null)
     this.isPrimitive = true
     this.bool = this.name === 'bool'
     this.default = getDefaultValue(this.name)
@@ -52,18 +49,20 @@ class Primitive extends ResolvedType {
 }
 
 class Alias extends ResolvedType {
-  constructor (hyperschema, description, fqn) {
-    super(hyperschema, description, fqn)
+  constructor (hyperschema, fqn, description, existing) {
+    super(hyperschema, description, fqn, existing)
     this.isAlias = true
     this.type = hyperschema.resolve(description.alias)
     this.default = this.type.default
 
-    this.version = 1
-    if (this.previous) {
-      if (this.previous.type.name !== this.type.name) {
+    if (existing) {
+      if (existing.type.name !== this.type.name) {
         throw new Error(`Remapping an alias: ${fqn}`)
       }
-      this.version = this.previous.version
+      this.version = existing.version
+    } else {
+      this.hyperschema.maybeBumpVersion()
+      this.version = this.hyperschema.version
     }
   }
 
@@ -77,55 +76,16 @@ class Alias extends ResolvedType {
   }
 }
 
-class Enum extends ResolvedType {
-  constructor (hyperschema, description, fqn) {
-    super(hyperschema, description, fqn)
-    this.isEnum = true
-    this.values = description.values
-    this.versions = description.versions || []
-
-    if (!description.versions) {
-      for (let i = 0; i < description.values.length; i++) {
-        this.versions.push(hyperschema.version)
-      }
-    }
-
-    if (this.previous) {
-      if (this.previous.versions.length > this.versions.length) {
-        throw new Error(`Shrinking an enum: ${this.fqn}`)
-      }
-      for (let i = 0; i < this.previous.versions.length; i++) {
-        const prev = this.previous.description.values[i]
-        const current = this.description.values[i]
-        if (prev !== current) {
-          throw new Error(`Renaming an enum value: ${this.fqn}/${prev}`)
-        }
-        this.versions[i] = this.previous.versions[i]
-      }
-    }
-  }
-
-  toJSON () {
-    return {
-      enum: true,
-      name: this.name,
-      namespace: this.namespace,
-      values: this.values,
-      versions: this.versions
-    }
-  }
-}
-
 class StructField {
   constructor (hyperschema, struct, position, flag, description) {
     this.hyperschema = hyperschema
     this.description = description
     this.name = this.description.name
+    this.required = this.description.required
 
     this.position = position
     this.struct = struct
     this.flag = flag
-    this.optional = flag !== 0
 
     this.type = hyperschema.resolve(description.type)
     this.framed = this.type.isStruct && !this.type.description.compact
@@ -133,17 +93,18 @@ class StructField {
 
     this.version = description.version || hyperschema.version
 
-    if (this.struct.previous) {
+    if (this.struct.existing) {
       const tag = `${this.struct.fqn}/${this.description.name}`
-      const prevField = this.struct.previous.fields[position]
+      const prevField = this.struct.existing.fields[position]
       if (prevField) {
-        if (prevField.description.type !== this.description.type) {
+        if (prevField.type.fqn !== this.type.fqn) {
           throw new Error(`Field was modified: ${tag}`)
-        } else if (!prevField.description.required && this.description.required) {
-          throw new Error(`Optional field was made required: ${tag}`)
+        } else if (prevField.required !== this.required) {
+          throw new Error(`A required field must always stay required: ${tag}`)
         }
         this.version = prevField.version
       } else {
+        hyperschema.maybeBumpVersion()
         this.version = hyperschema.version
       }
     }
@@ -161,8 +122,8 @@ class StructField {
 }
 
 class Struct extends ResolvedType {
-  constructor (hyperschema, description, fqn) {
-    super(hyperschema, description, fqn)
+  constructor (hyperschema, fqn, description, existing) {
+    super(hyperschema, fqn, description, existing)
     this.isStruct = true
     this.default = null
 
@@ -177,15 +138,6 @@ class Struct extends ResolvedType {
       this.flagsPosition = description.flagsPosition
     }
 
-    if (this.previous) {
-      const oldLength = this.previous.fields.length
-      const newLength = this.description.fields.length
-      if (oldLength > newLength) {
-        throw new Error(`A field was removed: ${this.fqn}`)
-      } else if (this.compact && (oldLength !== newLength)) {
-        throw new Error(`A compact struct was expanded: ${this.fqn}`)
-      }
-    }
     for (let i = 0; i < description.fields.length; i++) {
       const fieldDescription = description.fields[i]
       const flag = !fieldDescription.required ? 2 ** this.optionals.length : 0
@@ -200,6 +152,19 @@ class Struct extends ResolvedType {
           this.flagsPosition = i
         }
       }
+    }
+
+    if (this.existing) {
+      const oldLength = this.existing.fields.length
+      const newLength = this.fields.length
+      if (oldLength > newLength) {
+        throw new Error(`A field was removed: ${this.fqn}`)
+      } else if (this.compact && (oldLength !== newLength)) {
+        throw new Error(`A compact struct was expanded: ${this.fqn}`)
+      }
+    } else {
+      this.hyperschema.maybeBumpVersion()
+      this.version = this.hyperschema.version
     }
   }
 
@@ -229,41 +194,56 @@ class HyperschemaNamespace {
 }
 
 module.exports = class Hyperschema {
-  constructor (previous) {
-    this.previous = previous
-    this.version = previous ? previous.version + 1 : 1
+  constructor (json) {
+    this.version = json ? json.version : 0
+    this.schema = []
 
     this.namespaces = new Map()
+    this.positionsByType = new Map()
+    this.typesByPosition = new Map()
     this.types = new Map()
-    this.orderedTypes = []
 
-    this._frozen = false
+    this.changed = false
+    this.initializing = true
+    if (json) {
+      for (let i = 0; i < json.schema.length; i++) {
+        const description = json.schema[i]
+        this.register(description)
+      }
+    }
+    this.initializing = false
   }
 
   _getFullyQualifiedName (description) {
     return '@' + description.namespace + '/' + description.name
   }
 
+  maybeBumpVersion () {
+    if (this.changed || this.initializing) return
+    this.changed = true
+    this.version += 1
+  }
+
   register (description) {
     const fqn = this._getFullyQualifiedName(description)
-    if (this.types.has(fqn)) throw new Error('Duplicate type description')
+    const existing = this.types.get(fqn)
+    const existingPosition = this.positionsByType.get(fqn)
+
     let type = null
     if (description.alias) {
-      type = new Alias(this, description, fqn)
-    } else if (description.enum) {
-      type = new Enum(this, description, fqn)
+      type = new Alias(this, fqn, description, existing)
     } else {
-      type = new Struct(this, description, fqn)
-    }
-
-    const fullDescription = {
-      description,
-      name: fqn,
-      type
+      type = new Struct(this, fqn, description, existing)
     }
     this.types.set(fqn, type)
-    if (!this._frozen) {
-      this.orderedTypes.push(fullDescription)
+
+    const json = type.toJSON()
+    if (existing) {
+      this.schema[existingPosition] = json
+    } else {
+      const position = this.schema.push(json) - 1
+      this.positionsByType.set(fqn, position)
+      this.typesByPosition.set(position, fqn)
     }
 
     return type
@@ -283,44 +263,21 @@ module.exports = class Hyperschema {
     return type
   }
 
-  freeze () {
-    this._frozen = true
-  }
-
-  toCode () {
-    return generateCode(this)
-  }
-
   toJSON () {
-    const output = {
-      version: this.version,
-      schema: []
-    }
-    for (const { type } of this.orderedTypes) {
-      output.schema.push(type.toJSON())
-    }
-    if (this.previous) {
-      const curStr = JSON.stringify(output.schema)
-      const prevStr = this.previous ? JSON.stringify(this.previous.toJSON().schema) : null
-      if (curStr === prevStr) {
-        // If nothing has changed between versions, do not bump it
-        output.version -= 1
-      }
-    }
-    return output
+    const json = { version: this.version, schema: this.schema.filter(t => !t.derived) }
+    return json
   }
 
   static toDisk (hyperschema, dir) {
     const jsonPath = p.join(p.resolve(dir), JSON_FILE_NAME)
     const codePath = p.join(p.resolve(dir), CODE_FILE_NAME)
     fs.writeFileSync(jsonPath, JSON.stringify(hyperschema.toJSON(), null, 2), { encoding: 'utf-8' })
-    fs.writeFileSync(codePath, hyperschema.toCode(), { encoding: 'utf-8' })
+    fs.writeFileSync(codePath, generateCode(hyperschema), { encoding: 'utf-8' })
   }
 
   static from (json) {
-    let previous = null
     if (typeof json === 'string') {
-      const jsonFilePath = p.join(p.resolve(previous), JSON_FILE_NAME)
+      const jsonFilePath = p.join(p.resolve(json), JSON_FILE_NAME)
       let exists = false
       try {
         fs.statSync(jsonFilePath)
@@ -328,16 +285,9 @@ module.exports = class Hyperschema {
       } catch (err) {
         if (err.code !== 'ENOENT') throw err
       }
-      if (exists) previous = new this(JSON.parse(fs.readFileSync(jsonFilePath)))
-    } else {
-      previous = new this(json)
+      if (exists) return new this(JSON.parse(fs.readFileSync(jsonFilePath)))
+      return new this()
     }
-
-    const schema = new this(previous)
-    for (const typeDescription of json.schema) {
-      schema.register(typeDescription)
-    }
-
-    return schema
+    return new this(json)
   }
 }

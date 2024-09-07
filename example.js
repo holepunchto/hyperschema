@@ -1,7 +1,7 @@
 const Hyperschema = require('../../..')
 
 module.exports = function createSchema (dir) {
-  const schema = new Hyperschema(opts)
+  const schema = Hyperschema.from(dir)
 
   const ns1 = schema.namespace('namespace-1')
   const ns2 = schema.namespace('namespace-2')
@@ -235,5 +235,5 @@ module.exports = function createSchema (dir) {
     ]
   })
 
-  return schema
+  Hyperschema.toDisk(schema, dir)
 }

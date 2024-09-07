@@ -1,4 +1,5 @@
 const test = require('brittle')
+const c = require('compact-encoding')
 
 const { createTestSchema } = require('./helpers')
 
@@ -19,7 +20,14 @@ test.solo('basic struct, all required fields, version bump', async t => {
     })
   })
 
-  t.is(schema.version, 1)
+  t.is(schema.json.version, 1)
+  t.is(schema.module.version, 1)
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const expected = { field1: 10 }
+    t.alike(expected, c.decode(enc, c.encode(enc, expected)))
+  }
 
   schema.rebuild(schema => {
     const ns = schema.namespace('test')
@@ -40,5 +48,12 @@ test.solo('basic struct, all required fields, version bump', async t => {
     })
   })
 
-  t.is(schema.version, 2)
+  t.is(schema.json.version, 2)
+  t.is(schema.module.version, 2)
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const expected = { field1: 10, field2: 20 }
+    t.alike(expected, c.decode(enc, c.encode(enc, expected)))
+  }
 })
