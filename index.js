@@ -50,7 +50,7 @@ class Primitive extends ResolvedType {
 
 class Alias extends ResolvedType {
   constructor (hyperschema, fqn, description, existing) {
-    super(hyperschema, description, fqn, existing)
+    super(hyperschema, fqn, description, existing)
     this.isAlias = true
     this.type = hyperschema.resolve(description.alias)
     this.default = this.type.default
