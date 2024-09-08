@@ -269,8 +269,11 @@ module.exports = class Hyperschema {
   }
 
   static toDisk (hyperschema, dir) {
+    fs.mkdirSync(dir)
+
     const jsonPath = p.join(p.resolve(dir), JSON_FILE_NAME)
     const codePath = p.join(p.resolve(dir), CODE_FILE_NAME)
+
     fs.writeFileSync(jsonPath, JSON.stringify(hyperschema.toJSON(), null, 2), { encoding: 'utf-8' })
     fs.writeFileSync(codePath, generateCode(hyperschema), { encoding: 'utf-8' })
   }
