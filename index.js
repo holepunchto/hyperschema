@@ -269,7 +269,7 @@ module.exports = class Hyperschema {
   }
 
   static toDisk (hyperschema, dir) {
-    fs.mkdirSync(dir)
+    fs.mkdirSync(dir, { recursive: true })
 
     const jsonPath = p.join(p.resolve(dir), JSON_FILE_NAME)
     const codePath = p.join(p.resolve(dir), CODE_FILE_NAME)

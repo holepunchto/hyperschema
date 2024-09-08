@@ -5,30 +5,6 @@ const ns1 = schema.namespace('namespace-1')
 const ns2 = schema.namespace('namespace-2')
 
 ns2.register({
-  name: 'basic-enum',
-  enum: true,
-  values: [
-    'value1',
-    'value2',
-    'value3',
-    'value4',
-    'value5',
-    'value6'
-  ]
-})
-
-ns2.register({
-  name: 'basic-enum-2',
-  enum: true,
-  values: [
-    'value1',
-    'value2',
-    'value3',
-    'value4'
-  ]
-})
-
-ns2.register({
   name: 'basic-alias',
   alias: 'string'
 })
@@ -63,6 +39,10 @@ ns1.register({
       name: 'id',
       type: 'uint',
       required: true
+    },
+    {
+      name: 'other',
+      type: 'uint'
     }
   ]
 })
