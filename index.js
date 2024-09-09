@@ -140,7 +140,7 @@ class Struct extends ResolvedType {
 
     if (this.existing) {
       const oldLength = this.existing.fields.length
-      const newLength = this.fields.length
+      const newLength = this.description.fields.length
       if (oldLength > newLength) {
         throw new Error(`A field was removed: ${this.fqn}`)
       } else if (this.compact && (oldLength !== newLength)) {
