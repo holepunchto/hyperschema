@@ -10,7 +10,7 @@ With Hyperschema, you create namespaces and register struct definitions on those
 ```js
 const Hyperschema = require('.')
 
-const schema = Hyperschema.from('./output')
+const schema = Hyperschema.from('./schema')
 const ns1 = schema.namespace('namespace-1')
 ns1.register({
   name: 'basic-struct',
