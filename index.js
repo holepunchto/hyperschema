@@ -194,9 +194,10 @@ class HyperschemaNamespace {
 }
 
 module.exports = class Hyperschema {
-  constructor (json) {
+  constructor (json, { dir = null } = {}) {
     this.version = json ? json.version : 0
     this.schema = []
+    this.dir = dir
 
     this.namespaces = new Map()
     this.positionsByType = new Map()
@@ -269,6 +270,7 @@ module.exports = class Hyperschema {
   }
 
   static toDisk (hyperschema, dir) {
+    if (!dir) dir = hyperschema.dir
     fs.mkdirSync(dir, { recursive: true })
 
     const jsonPath = p.join(p.resolve(dir), JSON_FILE_NAME)
@@ -288,8 +290,8 @@ module.exports = class Hyperschema {
       } catch (err) {
         if (err.code !== 'ENOENT') throw err
       }
-      if (exists) return new this(JSON.parse(fs.readFileSync(jsonFilePath)))
-      return new this()
+      if (exists) return new this(JSON.parse(fs.readFileSync(jsonFilePath)), { dir: json })
+      return new this(null, { dir: json })
     }
     return new this(json)
   }

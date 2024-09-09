@@ -213,4 +213,4 @@ ns1.register({
   ]
 })
 
-Hyperschema.toDisk(schema, './output')
+Hyperschema.toDisk(schema)
