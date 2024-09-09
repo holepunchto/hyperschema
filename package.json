@@ -6,6 +6,11 @@
   "bin": {
     "hyperschema": "./bin.js"
   },
+  "files": [
+    "lib/**",
+    "index.js",
+    "runtime.js"
+  ],
   "scripts": {
     "test": "standard && brittle test/index.js"
   },
