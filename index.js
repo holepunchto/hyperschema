@@ -60,7 +60,7 @@ class Alias extends ResolvedType {
         throw new Error(`Remapping an alias: ${fqn}`)
       }
       this.version = existing.version
-    } else {
+    } else if (!this.derived) {
       this.hyperschema.maybeBumpVersion()
       this.version = this.hyperschema.version
     }
@@ -103,7 +103,7 @@ class StructField {
           throw new Error(`A required field must always stay required: ${tag}`)
         }
         this.version = prevField.version
-      } else {
+      } else if (!this.struct.derived) {
         hyperschema.maybeBumpVersion()
         this.version = hyperschema.version
       }
@@ -162,7 +162,7 @@ class Struct extends ResolvedType {
       } else if (this.compact && (oldLength !== newLength)) {
         throw new Error(`A compact struct was expanded: ${this.fqn}`)
       }
-    } else {
+    } else if (!this.derived) {
       this.hyperschema.maybeBumpVersion()
       this.version = this.hyperschema.version
     }
