@@ -138,6 +138,19 @@ class Struct extends ResolvedType {
       this.flagsPosition = description.flagsPosition
     }
 
+    if (this.existing) {
+      const oldLength = this.existing.fields.length
+      const newLength = this.fields.length
+      if (oldLength > newLength) {
+        throw new Error(`A field was removed: ${this.fqn}`)
+      } else if (this.compact && (oldLength !== newLength)) {
+        throw new Error(`A compact struct was expanded: ${this.fqn}`)
+      }
+    } else if (!this.derived) {
+      this.hyperschema.maybeBumpVersion()
+      this.version = this.hyperschema.version
+    }
+
     for (let i = 0; i < description.fields.length; i++) {
       const fieldDescription = description.fields[i]
       const flag = !fieldDescription.required ? 2 ** this.optionals.length : 0
@@ -152,19 +165,6 @@ class Struct extends ResolvedType {
           this.flagsPosition = i
         }
       }
-    }
-
-    if (this.existing) {
-      const oldLength = this.existing.fields.length
-      const newLength = this.fields.length
-      if (oldLength > newLength) {
-        throw new Error(`A field was removed: ${this.fqn}`)
-      } else if (this.compact && (oldLength !== newLength)) {
-        throw new Error(`A compact struct was expanded: ${this.fqn}`)
-      }
-    } else if (!this.derived) {
-      this.hyperschema.maybeBumpVersion()
-      this.version = this.hyperschema.version
     }
   }
 
