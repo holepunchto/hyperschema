@@ -33,7 +33,7 @@ Hyperschema.toDisk(schema)
 `index.js` will contain generated `compact-encoding` definitions. You can then load/use them as follows:
 ```js
 const c = require('compact-encoding')
-const { resolveStruct } = require('./output')
+const { resolveStruct } = require('./schema')
 
 const encoding = resolveStruct('@namespace-1/basic-struct', 1)
 
