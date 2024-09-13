@@ -216,6 +216,7 @@ module.exports = class Hyperschema {
   }
 
   _getFullyQualifiedName (description) {
+    if (description.namespace === null) return description.name
     return '@' + description.namespace + '/' + description.name
   }
 
