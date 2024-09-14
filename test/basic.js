@@ -251,6 +251,38 @@ test('basic nested struct', async t => {
   }
 })
 
+test('basic required field missing', async t => {
+  const schema = await createTestSchema(t)
+
+  schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: 'string',
+          required: true
+        }
+      ]
+    })
+  })
+
+  t.is(schema.json.version, 1)
+  t.is(schema.module.version, 1)
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const missingRequired = { field2: 'badField' }
+    try {
+      c.encode(enc, missingRequired)
+      t.fail('expected error')
+    } catch (e) {
+      t.is(e.message, 'The "string" argument must be of type string or an instance of Buffer or ArrayBuffer. Received undefined')
+    }
+  }
+})
+
 test('basic nested struct, version bump', async t => {
   const schema = await createTestSchema(t)
 
