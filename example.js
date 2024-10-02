@@ -213,4 +213,24 @@ ns1.register({
   ]
 })
 
+ns1.register({
+  name: 'single-bool-at-end',
+  fields: [
+    {
+      name: 'string1',
+      type: 'string',
+      required: true
+    },
+    {
+      name: 'string2',
+      type: 'string',
+      required: true
+    },
+    {
+      name: 'optional',
+      type: 'bool'
+    }
+  ]
+})
+
 Hyperschema.toDisk(schema)
