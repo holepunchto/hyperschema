@@ -1,6 +1,6 @@
 {
   "name": "hyperschema",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Create registries of declarative compact-encoding schemas",
   "main": "index.js",
   "bin": {
