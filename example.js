@@ -163,6 +163,10 @@ ns1.register({
     {
       name: 'embeddedCompact',
       type: '@namespace-1/basic-compact-struct'
+    },
+    {
+      name: 'embeddedNone',
+      type: 'none'
     }
   ]
 })
