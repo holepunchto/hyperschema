@@ -1,6 +1,6 @@
 const Hyperschema = require('.')
 
-const schema = Hyperschema.from('./output')
+const schema = Hyperschema.from('./spec')
 const ns1 = schema.namespace('namespace-1')
 const ns2 = schema.namespace('namespace-2')
 
