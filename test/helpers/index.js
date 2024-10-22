@@ -5,22 +5,21 @@ const tmp = require('test-tmp')
 const Hyperschema = require('../..')
 
 class TestBuilder {
-  constructor (dir) {
+  constructor (dir, test) {
+    this.test = test
     this.dir = dir
     this.module = null
     this.version = 0
   }
 
-  rebuild (builder) {
+  async rebuild (builder) {
     const schema = Hyperschema.from(this.dir)
 
     builder(schema)
 
+    this.dir = await makeDir(this.test)
+
     Hyperschema.toDisk(schema, this.dir)
-    if (this.module) {
-      delete require.cache[require.resolve(this.dir)]
-      delete require.cache[require.resolve(p.join(this.dir, 'schema.json'))]
-    }
 
     this.module = require(this.dir)
     this.json = require(p.join(this.dir, 'schema.json'))
@@ -34,15 +33,19 @@ class TestBuilder {
   }
 }
 
-async function createTestSchema (t) {
+async function makeDir (t) {
   const dir = await tmp(t, { dir: p.join(__dirname, '../test-storage') })
 
   // Copy the runtime into the tmp dir so that we don't need to override it in the codegen
   const runtimePath = p.join(dir, 'node_modules', 'hyperschema', 'runtime.js')
   await fs.promises.mkdir(p.dirname(runtimePath), { recursive: true })
   await fs.promises.copyFile(p.resolve(dir, '../../../runtime.js'), runtimePath)
+  return dir
+}
 
-  return new TestBuilder(dir)
+async function createTestSchema (t) {
+  const dir = await makeDir(t)
+  return new TestBuilder(dir, t)
 }
 
 module.exports = {
