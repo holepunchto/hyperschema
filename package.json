@@ -26,14 +26,23 @@
   },
   "homepage": "https://github.com/holepunchto/hyperschema#readme",
   "dependencies": {
-    "bare-fs": "^3.1.0",
-    "bare-path": "^3.0.0",
     "compact-encoding": "^2.15.0",
-    "fs": "npm:bare-node-fs",
     "generate-object-property": "^2.0.0",
     "generate-string": "^1.0.1",
-    "path": "npm:bare-node-path",
     "same-object": "^1.0.2"
+  },
+  "imports": {
+    "fs": {
+      "bare": "bare-fs",
+      "default": "fs"
+    },
+    "path": {
+      "bare": "bare-path",
+      "default": "path"
+    }
+  },
+  "optionalDependencies": {
+    "bare-fs": "^3.1.1"
   },
   "devDependencies": {
     "brittle": "^3.7.0",

@@ -26,3 +26,4 @@ jobs:
         NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - run: npm run test
     - run: npm run test:bare
+    
