@@ -12,7 +12,8 @@
     "runtime.js"
   ],
   "scripts": {
-    "test": "standard && brittle test/index.js"
+    "test": "standard && brittle test/index.js",
+    "test:bare": "standard && bare test/index.js"
   },
   "repository": {
     "type": "git",
@@ -28,7 +29,19 @@
     "compact-encoding": "^2.15.0",
     "generate-object-property": "^2.0.0",
     "generate-string": "^1.0.1",
-    "same-object": "^1.0.2"
+    "same-object": "^1.0.2",
+    "bare-fs": "^3.1.1"
+
+  },
+  "imports": {
+    "fs": {
+      "bare": "bare-fs",
+      "default": "fs"
+    },
+    "path": {
+      "bare": "bare-path",
+      "default": "path"
+    }
   },
   "devDependencies": {
     "brittle": "^3.7.0",
