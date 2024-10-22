@@ -1,6 +1,6 @@
 {
   "name": "hyperschema",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Create registries of declarative compact-encoding schemas",
   "main": "index.js",
   "bin": {
@@ -31,7 +31,6 @@
     "generate-string": "^1.0.1",
     "same-object": "^1.0.2",
     "bare-fs": "^3.1.1"
-
   },
   "imports": {
     "fs": {
