@@ -138,6 +138,14 @@ class Struct extends ResolvedType {
       this.flagsPosition = description.flagsPosition
     }
 
+    if (!description.name) {
+      throw new Error(`Struct ${this.fqn}: required 'name' definition is missing`)
+    }
+
+    if (!description.fields) {
+      throw new Error(`Struct ${this.fqn}: required 'fields' definition is missing`)
+    }
+
     if (this.existing) {
       const oldLength = this.existing.fields.length
       const newLength = this.description.fields.length
