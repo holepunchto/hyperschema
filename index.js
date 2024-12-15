@@ -52,7 +52,10 @@ class Alias extends ResolvedType {
   constructor (hyperschema, fqn, description, existing) {
     super(hyperschema, fqn, description, existing)
     this.isAlias = true
+
     this.type = hyperschema.resolve(description.alias)
+    if (!this.type) throw new Error(`Cannot resolve alias target ${description.alias} in ${description.name}`)
+
     this.default = this.type.default
 
     if (existing) {
@@ -88,6 +91,8 @@ class StructField {
     this.flag = flag
 
     this.type = hyperschema.resolve(description.type)
+    if (!this.type) throw new Error(`Cannot resolve field type ${description.type} in ${this.name}`)
+
     this.framed = this.type.isStruct && !this.type.description.compact
     this.array = !!this.description.array
 
