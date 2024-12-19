@@ -166,6 +166,13 @@ class Struct extends ResolvedType {
 
     for (let i = 0; i < description.fields.length; i++) {
       const fieldDescription = description.fields[i]
+
+      // bools can only be set in the flag, so auto downgrade the from required
+      // TODO: if we add semantic meaning to required, ie "user MUST set this", we should
+      // add an additional state for this
+      if (fieldDescription.required && fieldDescription.type === 'bool') {
+        fieldDescription.required = false
+      }
       const flag = !fieldDescription.required ? 2 ** this.optionals.length : 0
       const field = new StructField(hyperschema, this, i, flag, fieldDescription)
 
