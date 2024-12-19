@@ -134,6 +134,7 @@ class Struct extends ResolvedType {
 
     this.fields = []
     this.fieldsByName = new Map()
+    this.requiredFields = []
 
     this.optionals = []
     this.flagsPosition = -1
@@ -184,6 +185,8 @@ class Struct extends ResolvedType {
         if (this.flagsPosition === -1) {
           this.flagsPosition = i
         }
+      } else {
+        this.requiredFields.push(field)
       }
     }
   }
@@ -290,11 +293,11 @@ module.exports = class Hyperschema {
     return json
   }
 
-  toCode () {
-    return generateCode(this)
+  toCode (opts = {}) {
+    return generateCode(this, opts)
   }
 
-  static toDisk (hyperschema, dir) {
+  static toDisk (hyperschema, dir, opts = {}) {
     if (!dir) dir = hyperschema.dir
     fs.mkdirSync(dir, { recursive: true })
 
@@ -302,7 +305,7 @@ module.exports = class Hyperschema {
     const codePath = p.join(p.resolve(dir), CODE_FILE_NAME)
 
     fs.writeFileSync(jsonPath, JSON.stringify(hyperschema.toJSON(), null, 2), { encoding: 'utf-8' })
-    fs.writeFileSync(codePath, hyperschema.toCode(), { encoding: 'utf-8' })
+    fs.writeFileSync(codePath, hyperschema.toCode(opts), { encoding: 'utf-8' })
   }
 
   static from (json) {
