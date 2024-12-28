@@ -85,6 +85,7 @@ class StructField {
     this.description = description
     this.name = this.description.name
     this.required = this.description.required
+    this.external = this.description.external
 
     this.position = position
     this.struct = struct
