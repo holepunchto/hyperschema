@@ -2,6 +2,8 @@ const Hyperschema = require('.')
 
 const schema = Hyperschema.from('./spec')
 const ns1 = schema.namespace('namespace-1')
+ns1.require('./helpers.js')
+
 const ns2 = schema.namespace('namespace-2')
 
 ns2.register({
@@ -60,6 +62,7 @@ ns1.register({
 ns1.register({
   name: 'basic-struct',
   flagsPosition: 0,
+  validator: 'basicStructValidator',
   fields: [
     {
       name: 'id',

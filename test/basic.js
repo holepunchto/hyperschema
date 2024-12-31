@@ -283,6 +283,40 @@ test('basic required field missing', async t => {
   }
 })
 
+test('basic required field missing with validation', async t => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.require('test/helpers/index.js')
+    ns.register({
+      name: 'test-struct',
+      validator: 'testValidator',
+      fields: [
+        {
+          name: 'field1',
+          type: 'string',
+          required: true
+        }
+      ]
+    })
+  })
+
+  t.is(schema.json.version, 1)
+  t.is(schema.module.version, 1)
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const missingRequired = { field2: 'badField' }
+    try {
+      c.encode(enc, missingRequired)
+      t.fail('expected error')
+    } catch (e) {
+      t.is(e.message, 'field1 is required')
+    }
+  }
+})
+
 test('basic nested struct, version bump', async t => {
   const schema = await createTestSchema(t)
 
