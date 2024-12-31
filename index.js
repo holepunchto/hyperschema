@@ -132,6 +132,7 @@ class Struct extends ResolvedType {
     super(hyperschema, fqn, description, existing)
     this.isStruct = true
     this.default = null
+    this.validator = description.validator
 
     this.fields = []
     this.fieldsByName = new Map()
@@ -189,6 +190,10 @@ class Struct extends ResolvedType {
     }
   }
 
+  getNamespace () {
+    return this.hyperschema.namespaces.get(this.namespace)
+  }
+
   toJSON () {
     return {
       name: this.name,
@@ -204,6 +209,12 @@ class HyperschemaNamespace {
   constructor (hyperschema, name) {
     this.hyperschema = hyperschema
     this.name = name
+    this.helpers = null
+    this.id = hyperschema.namespaces.size
+  }
+
+  require (filename) {
+    this.helpers = p.resolve(filename)
   }
 
   register (description) {

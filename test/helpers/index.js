@@ -48,6 +48,11 @@ async function createTestSchema (t) {
   return new TestBuilder(dir, t)
 }
 
+function testValidator (state, m) {
+  if (!m.field1) throw new Error('field1 is required')
+}
+
 module.exports = {
-  createTestSchema
+  createTestSchema,
+  testValidator
 }
