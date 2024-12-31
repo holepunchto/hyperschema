@@ -135,7 +135,6 @@ class Struct extends ResolvedType {
 
     this.fields = []
     this.fieldsByName = new Map()
-    this.requiredFields = []
 
     this.optionals = []
     this.flagsPosition = -1
@@ -186,8 +185,6 @@ class Struct extends ResolvedType {
         if (this.flagsPosition === -1) {
           this.flagsPosition = i
         }
-      } else {
-        this.requiredFields.push(field)
       }
     }
   }
