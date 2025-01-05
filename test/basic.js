@@ -363,6 +363,7 @@ test('basic struct array', async t => {
     ns.register({
       name: 'test-struct',
       array: true,
+      compact: true,
       fields: [
         {
           name: 'foo',
