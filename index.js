@@ -139,6 +139,7 @@ class Struct extends ResolvedType {
     this.optionals = []
     this.flagsPosition = -1
     this.compact = !!description.compact
+    this.array = !!description.array
 
     if (Number.isInteger(description.flagsPosition)) {
       this.flagsPosition = description.flagsPosition

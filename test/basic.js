@@ -354,3 +354,30 @@ test('basic nested struct, version bump', async t => {
     t.alike(expected, c.decode(enc, c.encode(enc, expected)))
   }
 })
+
+test('basic struct array', async t => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-struct',
+      array: true,
+      fields: [
+        {
+          name: 'foo',
+          type: 'string',
+          required: true
+        }
+      ]
+    })
+  })
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const buf = c.encode(enc, [{ foo: 'bar' }, { foo: 'baz' }])
+    const dec = c.decode(enc, buf)
+
+    t.alike(dec, [{ foo: 'bar' }, { foo: 'baz' }])
+  }
+})
