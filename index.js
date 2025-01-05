@@ -94,7 +94,7 @@ class StructField {
     this.type = hyperschema.resolve(description.type)
     if (!this.type) throw new Error(`Cannot resolve field type ${description.type} in ${this.name}`)
 
-    this.framed = this.type.isStruct && !this.type.description.compact
+    this.framed = this.type.isStruct && !this.type.description.compact && !this.type.description.array
     this.array = !!this.description.array
 
     this.version = description.version || hyperschema.version
