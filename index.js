@@ -79,6 +79,56 @@ class Alias extends ResolvedType {
   }
 }
 
+class Enum extends ResolvedType {
+  constructor (hyperschema, fqn, description, existing) {
+    super(hyperschema, fqn, description, existing)
+
+    this.isEnum = true
+    this.enum = []
+    this.offset = typeof description.offset === 'number' ? description.offset : 1
+    this.default = description.strings ? null : 0
+    this.strings = !!description.strings
+
+    if (this.existing) {
+      if (!this.existing.enum) {
+        throw new Error('Previous declaration was not an enum')
+      }
+
+      if (this.existing.enum.length > description.enum.length) {
+        throw new Error('An enum value was removed')
+      }
+    }
+
+    for (let i = 0; i < description.enum.length; i++) {
+      const d = description.enum[i]
+      const key = typeof d === 'string' ? d : d.key
+      const prev = i < this.existing?.enum.length ? this.existing.enum[i] : null
+
+      if (prev && prev.key !== key) {
+        throw new Error(`Enum ${i} in ${fqn} changed. Was "${prev.key}" but is now "${key}`)
+      }
+
+      if (!prev) {
+        hyperschema.maybeBumpVersion()
+      }
+
+      this.enum.push({
+        key,
+        version: prev ? prev.version : hyperschema.version
+      })
+    }
+  }
+
+  toJSON () {
+    return {
+      name: this.description.name,
+      namespace: this.namespace,
+      offset: this.offset,
+      enum: this.enum
+    }
+  }
+}
+
 class StructField {
   constructor (hyperschema, struct, position, flag, description) {
     this.hyperschema = hyperschema
@@ -256,6 +306,8 @@ module.exports = class Hyperschema {
     let type = null
     if (description.alias) {
       type = new Alias(this, fqn, description, existing)
+    } else if (description.enum) {
+      type = new Enum(this, fqn, description, existing)
     } else {
       type = new Struct(this, fqn, description, existing)
     }
