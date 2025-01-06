@@ -382,3 +382,96 @@ test('basic struct array', async t => {
     t.alike(dec, [{ foo: 'bar' }, { foo: 'baz' }])
   }
 })
+
+test('basic enums', async t => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-enum',
+      enum: [
+        'hello',
+        'world'
+      ]
+    })
+
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'foo',
+          type: '@test/test-enum',
+          required: true
+        }
+      ]
+    })
+  })
+
+  {
+    const { hello } = schema.module.getEnum('@test/test-enum')
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const buf = c.encode(enc, { foo: hello })
+    const dec = c.decode(enc, buf)
+
+    t.alike(dec, { foo: hello })
+  }
+
+  {
+    const { world } = schema.module.getEnum('@test/test-enum')
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const buf = c.encode(enc, { foo: world })
+    const dec = c.decode(enc, buf)
+
+    t.alike(dec, { foo: world })
+  }
+
+  t.alike(schema.module.getEnum('@test/test-enum'), { hello: 1, world: 2 })
+})
+
+test('basic enums (strings)', async t => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-enum',
+      strings: true,
+      enum: [
+        'hello',
+        'world'
+      ]
+    })
+
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'foo',
+          type: '@test/test-enum',
+          required: true
+        }
+      ]
+    })
+  })
+
+  {
+    const { hello } = schema.module.getEnum('@test/test-enum')
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const buf = c.encode(enc, { foo: hello })
+    const dec = c.decode(enc, buf)
+
+    t.alike(dec, { foo: hello })
+  }
+
+  {
+    const { world } = schema.module.getEnum('@test/test-enum')
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const buf = c.encode(enc, { foo: world })
+    const dec = c.decode(enc, buf)
+
+    t.alike(dec, { foo: world })
+  }
+
+  t.alike(schema.module.getEnum('@test/test-enum'), { hello: 'hello', world: 'world' })
+})
