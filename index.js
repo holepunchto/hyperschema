@@ -105,8 +105,10 @@ class StructField {
       if (prevField) {
         if (prevField.type.fqn !== this.type.fqn) {
           throw new Error(`Field was modified: ${tag}`)
-        } else if (prevField.required !== this.required) {
+        } else if (prevField.required && !this.required) {
           throw new Error(`A required field must always stay required: ${tag}`)
+        } else if (!prevField.required && this.required) {
+          throw new Error(`An optional field must always stay optional: ${tag}`)
         }
         this.version = prevField.version
       } else if (!this.struct.derived) {

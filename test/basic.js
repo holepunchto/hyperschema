@@ -156,6 +156,68 @@ test('basic struct, one optional fields, version bump', async t => {
   }
 })
 
+test('basic struct, required field to optional should fail', async t => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: 'uint',
+          required: true
+        }
+      ]
+    })
+  })
+
+  await t.exception(schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: 'uint'
+        }
+      ]
+    })
+  }), /A required field must always stay required/)
+})
+
+test('basic struct, optional field to required should fail', async t => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: 'uint'
+        }
+      ]
+    })
+  })
+
+  await t.exception(schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: 'uint',
+          required: true
+        }
+      ]
+    })
+  }), /An optional field must always stay optional/)
+})
+
 test('basic struct, one optional fields, type alias, version bump', async t => {
   const schema = await createTestSchema(t)
 
