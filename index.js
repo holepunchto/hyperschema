@@ -344,8 +344,8 @@ module.exports = class Hyperschema {
     return json
   }
 
-  toCode () {
-    return generateCode(this)
+  toCode (opts) {
+    return generateCode(this, opts)
   }
 
   static toDisk (hyperschema, dir) {

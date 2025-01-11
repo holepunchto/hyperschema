@@ -8,6 +8,13 @@
     "index.js",
     "runtime.js"
   ],
+  "exports": {
+    ".": "./index.js",
+    "./runtime": {
+      "import": "./runtime.mjs",
+      "default": "./runtime.cjs"
+    }
+  },
   "scripts": {
     "test": "standard && brittle test/index.js",
     "test:bare": "standard && bare test/index.js"
