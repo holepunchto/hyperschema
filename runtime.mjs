@@ -1,3 +1,3 @@
-import compact from 'compact-encoding'
+import c from 'compact-encoding'
 
-export const c = compact
+export { c }
