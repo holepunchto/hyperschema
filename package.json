@@ -4,10 +4,10 @@
   "description": "Create registries of declarative compact-encoding schemas",
   "files": [
     "lib/*.js",
-    "builder.js",
+    "builder.mjs",
     "builder.cjs",
-    "runtime.cjs",
-    "runtime.js"
+    "runtime.mjs",
+    "runtime.cjs"
   ],
   "exports": {
     ".": {
