@@ -346,7 +346,7 @@ module.exports = class Hyperschema {
     return json
   }
 
-  toCode ({ esm = this.esm } = {}) {
+  toCode ({ esm = this.constructor.esm } = {}) {
     return generateCode(this, { esm })
   }
 
