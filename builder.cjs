@@ -266,8 +266,9 @@ class HyperschemaNamespace {
 }
 
 module.exports = class Hyperschema {
-  constructor (json, { dir = null } = {}) {
+  constructor (json, { dir = null, versioned = true } = {}) {
     this.version = json ? json.version : 0
+    this.versioned = versioned
     this.schema = []
     this.dir = dir
 
@@ -297,7 +298,7 @@ module.exports = class Hyperschema {
   maybeBumpVersion () {
     if (this.changed || this.initializing) return
     this.changed = true
-    this.version += 1
+    if (this.versioned) this.version += 1
   }
 
   register (description) {
@@ -366,7 +367,7 @@ module.exports = class Hyperschema {
     fs.writeFileSync(codePath, hyperschema.toCode(opts), { encoding: 'utf-8' })
   }
 
-  static from (json) {
+  static from (json, opts) {
     if (typeof json === 'string') {
       const jsonFilePath = p.join(p.resolve(json), JSON_FILE_NAME)
       let exists = false
@@ -376,9 +377,9 @@ module.exports = class Hyperschema {
       } catch (err) {
         if (err.code !== 'ENOENT') throw err
       }
-      if (exists) return new this(JSON.parse(fs.readFileSync(jsonFilePath)), { dir: json })
-      return new this(null, { dir: json })
+      if (exists) return new this(JSON.parse(fs.readFileSync(jsonFilePath)), { ...opts, dir: json })
+      return new this(null, { ...opts, dir: json })
     }
-    return new this(json)
+    return new this(json, opts)
   }
 }
