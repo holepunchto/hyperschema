@@ -2,7 +2,7 @@ const p = require('path')
 const fs = require('fs')
 const tmp = require('test-tmp')
 
-const Hyperschema = require('../..')
+const Hyperschema = require('../../builder.cjs')
 
 class TestBuilder {
   constructor (dir, test) {
