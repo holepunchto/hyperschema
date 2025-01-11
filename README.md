@@ -30,6 +30,12 @@ ns1.register({
 Hyperschema.toDisk(schema)
 ```
 
+If you want to generate as ESM, simply use `import` instead of `require` above or set the option explictly in `toDisk` like so
+
+```js
+Hyperschema.toDisk(schema, { esm: true })
+```
+
 `index.js` will contain generated `compact-encoding` definitions. You can then load/use them as follows:
 ```js
 const c = require('compact-encoding')

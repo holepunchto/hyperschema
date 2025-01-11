@@ -2,7 +2,7 @@ const p = require('path')
 const fs = require('fs')
 const tmp = require('test-tmp')
 
-const Hyperschema = require('../..')
+const Hyperschema = require('../../builder.cjs')
 
 class TestBuilder {
   constructor (dir, test) {
@@ -37,9 +37,9 @@ async function makeDir (t) {
   const dir = await tmp(t, { dir: p.join(__dirname, '../test-storage') })
 
   // Copy the runtime into the tmp dir so that we don't need to override it in the codegen
-  const runtimePath = p.join(dir, 'node_modules', 'hyperschema', 'runtime.js')
+  const runtimePath = p.join(dir, 'node_modules', 'hyperschema', 'runtime.cjs')
   await fs.promises.mkdir(p.dirname(runtimePath), { recursive: true })
-  await fs.promises.copyFile(p.resolve(dir, '../../../runtime.js'), runtimePath)
+  await fs.promises.copyFile(p.resolve(dir, '../../../runtime.cjs'), runtimePath)
   return dir
 }
 
