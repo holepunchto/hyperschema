@@ -9,7 +9,10 @@
     "runtime.js"
   ],
   "exports": {
-    ".": "./index.js",
+    ".": {
+      "import": "./index.mjs",
+      "default": "./index.cjs"
+    },
     "./runtime": {
       "import": "./runtime.mjs",
       "default": "./runtime.cjs"

@@ -287,6 +287,8 @@ module.exports = class Hyperschema {
     this.initializing = false
   }
 
+  static esm = false
+
   _getFullyQualifiedName (description) {
     if (description.namespace === null) return description.name
     return '@' + description.namespace + '/' + description.name
@@ -344,11 +346,16 @@ module.exports = class Hyperschema {
     return json
   }
 
-  toCode (opts) {
-    return generateCode(this, opts)
+  toCode ({ esm = this.esm } = {}) {
+    return generateCode(this, { esm })
   }
 
-  static toDisk (hyperschema, dir) {
+  static toDisk (hyperschema, dir, opts) {
+    if (typeof dir === 'object' && dir) {
+      opts = dir
+      dir = null
+    }
+
     if (!dir) dir = hyperschema.dir
     fs.mkdirSync(dir, { recursive: true })
 
@@ -356,7 +363,7 @@ module.exports = class Hyperschema {
     const codePath = p.join(p.resolve(dir), CODE_FILE_NAME)
 
     fs.writeFileSync(jsonPath, JSON.stringify(hyperschema.toJSON(), null, 2), { encoding: 'utf-8' })
-    fs.writeFileSync(codePath, hyperschema.toCode(), { encoding: 'utf-8' })
+    fs.writeFileSync(codePath, hyperschema.toCode(opts), { encoding: 'utf-8' })
   }
 
   static from (json) {
