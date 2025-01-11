@@ -1,4 +1,4 @@
-import Hyperschema from './index.cjs'
+import Hyperschema from './builder.cjs'
 
 class ESMHyperschema extends Hyperschema {
   static esm = true
