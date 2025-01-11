@@ -2,20 +2,31 @@
   "name": "hyperschema",
   "version": "1.5.0",
   "description": "Create registries of declarative compact-encoding schemas",
-  "main": "index.js",
   "files": [
-    "lib/**",
-    "index.js",
+    "lib/*.js",
+    "builder.js",
+    "builder.cjs",
+    "runtime.cjs",
     "runtime.js"
   ],
   "exports": {
     ".": {
-      "import": "./index.mjs",
-      "default": "./index.cjs"
+      "import": "./builder.mjs",
+      "default": "./builder.cjs"
     },
     "./runtime": {
       "import": "./runtime.mjs",
       "default": "./runtime.cjs"
+    }
+  },
+  "imports": {
+    "fs": {
+      "bare": "bare-fs",
+      "default": "fs"
+    },
+    "path": {
+      "bare": "bare-path",
+      "default": "path"
     }
   },
   "scripts": {
@@ -37,16 +48,6 @@
     "compact-encoding": "^2.15.0",
     "generate-object-property": "^2.0.0",
     "generate-string": "^1.0.1"
-  },
-  "imports": {
-    "fs": {
-      "bare": "bare-fs",
-      "default": "fs"
-    },
-    "path": {
-      "bare": "bare-path",
-      "default": "path"
-    }
   },
   "devDependencies": {
     "brittle": "^3.7.0",
