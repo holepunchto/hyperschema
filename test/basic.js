@@ -355,14 +355,14 @@ test('basic nested struct, version bump', async t => {
   }
 })
 
-test('basic struct array', async t => {
+test('basic array', async t => {
   const schema = await createTestSchema(t)
 
   await schema.rebuild(schema => {
     const ns = schema.namespace('test')
+
     ns.register({
       name: 'test-struct',
-      array: true,
       compact: true,
       fields: [
         {
@@ -372,10 +372,16 @@ test('basic struct array', async t => {
         }
       ]
     })
+
+    ns.register({
+      name: 'test-array',
+      array: true,
+      type: '@test/test-struct'
+    })
   })
 
   {
-    const enc = schema.module.resolveStruct('@test/test-struct')
+    const enc = schema.module.resolveStruct('@test/test-array')
     const buf = c.encode(enc, [{ foo: 'bar' }, { foo: 'baz' }])
     const dec = c.decode(enc, buf)
 
