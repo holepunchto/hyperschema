@@ -27,6 +27,10 @@ class ResolvedType {
     this.version = -1
   }
 
+  frameable () {
+    return !!this.isStruct && !this.description.compact && !this.description.array
+  }
+
   toJSON () {
     return {
       name: this.name,
@@ -67,6 +71,10 @@ class Alias extends ResolvedType {
       this.hyperschema.maybeBumpVersion()
       this.version = this.hyperschema.version
     }
+  }
+
+  frameable () {
+    return this.type.frameable()
   }
 
   toJSON () {
@@ -144,7 +152,7 @@ class StructField {
     this.type = hyperschema.resolve(description.type)
     if (!this.type) throw new Error(`Cannot resolve field type ${description.type} in ${this.name}`)
 
-    this.framed = this.type.isStruct && !this.type.description.compact && !this.type.description.array
+    this.framed = this.type.frameable()
     this.array = !!this.description.array
 
     this.version = description.version || hyperschema.version
@@ -186,10 +194,19 @@ class Struct extends ResolvedType {
     this.fields = []
     this.fieldsByName = new Map()
 
+    this.type = description.type ? hyperschema.resolve(description.type) : null
+
     this.optionals = []
     this.flagsPosition = -1
     this.compact = !!description.compact
     this.array = !!description.array
+    this.framed = false
+
+    if (this.array && !this.compact) {
+      this.framed = this.type ? this.type.frameable() : true
+    }
+
+    if (!description.fields) description.fields = []
 
     if (Number.isInteger(description.flagsPosition)) {
       this.flagsPosition = description.flagsPosition
@@ -245,6 +262,8 @@ class Struct extends ResolvedType {
       name: this.name,
       namespace: this.namespace,
       compact: this.compact,
+      array: this.array,
+      type: this.type && this.type.fqn,
       flagsPosition: this.flagsPosition,
       fields: this.fields.map(f => f.toJSON())
     }
