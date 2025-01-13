@@ -21,10 +21,16 @@ class ResolvedType {
     this.fqn = fqn
 
     this.isPrimitive = false
+    this.isEnum = false
     this.isStruct = false
+    this.isArray = false
     this.isAlias = false
 
     this.version = -1
+  }
+
+  frameable () {
+    return false
   }
 
   toJSON () {
@@ -67,6 +73,10 @@ class Alias extends ResolvedType {
       this.hyperschema.maybeBumpVersion()
       this.version = this.hyperschema.version
     }
+  }
+
+  frameable () {
+    return this.type.frameable()
   }
 
   toJSON () {
@@ -144,7 +154,7 @@ class StructField {
     this.type = hyperschema.resolve(description.type)
     if (!this.type) throw new Error(`Cannot resolve field type ${description.type} in ${this.name}`)
 
-    this.framed = this.type.isStruct && !this.type.description.compact && !this.type.description.array
+    this.framed = this.type.frameable()
     this.array = !!this.description.array
 
     this.version = description.version || hyperschema.version
@@ -177,6 +187,44 @@ class StructField {
   }
 }
 
+class Array extends ResolvedType {
+  constructor (hyperschema, fqn, description, existing) {
+    super(hyperschema, fqn, description, existing)
+    this.isArray = true
+    this.default = null
+
+    if (!description.type) {
+      throw new Error(`Array ${this.fqn}: required 'type' definition is missing`)
+    }
+
+    this.type = hyperschema.resolve(description.type)
+    this.framed = this.type.frameable()
+
+    if (!description.name) {
+      throw new Error(`Array ${this.fqn}: required 'name' definition is missing`)
+    }
+
+    if (!description.namespace) {
+      throw new Error(`Array ${this.fqn}: required 'namespace' definition is missing`)
+    }
+
+    if (this.existing) {
+      if (this.existing.type.fqn !== this.type.fqn) {
+        throw new Error(`Array was modified: ${this.fqn}`)
+      }
+    }
+  }
+
+  toJSON () {
+    return {
+      name: this.name,
+      namespace: this.namespace,
+      array: true,
+      type: this.type.fqn
+    }
+  }
+}
+
 class Struct extends ResolvedType {
   constructor (hyperschema, fqn, description, existing) {
     super(hyperschema, fqn, description, existing)
@@ -188,8 +236,8 @@ class Struct extends ResolvedType {
 
     this.optionals = []
     this.flagsPosition = -1
+
     this.compact = !!description.compact
-    this.array = !!description.array
 
     if (Number.isInteger(description.flagsPosition)) {
       this.flagsPosition = description.flagsPosition
@@ -238,6 +286,10 @@ class Struct extends ResolvedType {
         }
       }
     }
+  }
+
+  frameable () {
+    return !this.compact
   }
 
   toJSON () {
@@ -311,6 +363,8 @@ module.exports = class Hyperschema {
       type = new Alias(this, fqn, description, existing)
     } else if (description.enum) {
       type = new Enum(this, fqn, description, existing)
+    } else if (description.array) {
+      type = new Array(this, fqn, description, existing)
     } else {
       type = new Struct(this, fqn, description, existing)
     }
