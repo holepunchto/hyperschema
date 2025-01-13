@@ -319,7 +319,7 @@ class HyperschemaNamespace {
 
 module.exports = class Hyperschema {
   constructor (json, { dir = null, versioned = true } = {}) {
-    this.version = json ? json.version : 0
+    this.version = json ? json.version : versioned ? 0 : 1
     this.versioned = versioned
     this.schema = []
     this.dir = dir
