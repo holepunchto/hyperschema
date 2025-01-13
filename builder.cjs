@@ -30,7 +30,7 @@ class ResolvedType {
   }
 
   frameable () {
-    return this.isStruct && !this.description.compact
+    return false
   }
 
   toJSON () {
@@ -215,10 +215,6 @@ class Array extends ResolvedType {
     }
   }
 
-  frameable () {
-    return false
-  }
-
   toJSON () {
     return {
       name: this.name,
@@ -290,6 +286,10 @@ class Struct extends ResolvedType {
         }
       }
     }
+  }
+
+  frameable () {
+    return !this.compact
   }
 
   toJSON () {
