@@ -21,6 +21,7 @@ class ResolvedType {
     this.fqn = fqn
 
     this.isPrimitive = false
+    this.isEnum = false
     this.isStruct = false
     this.isAlias = false
 
@@ -28,7 +29,7 @@ class ResolvedType {
   }
 
   frameable () {
-    return !!this.isStruct && !this.description.compact && !this.description.array
+    return this.isStruct && !this.description.compact && !this.description.array
   }
 
   toJSON () {
@@ -255,6 +256,13 @@ class Struct extends ResolvedType {
         }
       }
     }
+  }
+
+  frameable () {
+    if (this.description.array) return false
+    if (this.description.compact) return false
+    if (this.type) return this.type.frameable()
+    return true
   }
 
   toJSON () {
