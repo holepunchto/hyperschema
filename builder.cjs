@@ -240,6 +240,7 @@ class Struct extends ResolvedType {
 
     this.optionals = []
     this.flagsPosition = -1
+    this.inited = false
 
     this.compact = !!description.compact
 
@@ -270,6 +271,9 @@ class Struct extends ResolvedType {
   }
 
   init () {
+    if (this.inited) return
+    this.inited = true
+
     const hyperschema = this.hyperschema
     const description = this.description
 
@@ -378,7 +382,6 @@ module.exports = class Hyperschema {
       type = new Struct(this, fqn, description, existing)
     }
     this.types.set(fqn, type)
-    type.init()
 
     const json = type.toJSON()
     if (existing) {
@@ -420,6 +423,8 @@ module.exports = class Hyperschema {
       opts = dir
       dir = null
     }
+
+    for (const t of hyperschema.types.values()) t.init()
 
     if (!dir) dir = hyperschema.dir
     fs.mkdirSync(dir, { recursive: true })
