@@ -354,6 +354,7 @@ module.exports = class Hyperschema {
       }
     }
     this.initializing = false
+    this.linkAll() // link all existing ones
   }
 
   static esm = false
