@@ -29,6 +29,10 @@ class ResolvedType {
     this.version = -1
   }
 
+  init () {
+    // if it needs deferred init
+  }
+
   frameable () {
     return false
   }
@@ -263,6 +267,11 @@ class Struct extends ResolvedType {
       this.hyperschema.maybeBumpVersion()
       this.version = this.hyperschema.version
     }
+  }
+
+  init () {
+    const hyperschema = this.hyperschema
+    const description = this.description
 
     for (let i = 0; i < description.fields.length; i++) {
       const fieldDescription = description.fields[i]
@@ -369,6 +378,7 @@ module.exports = class Hyperschema {
       type = new Struct(this, fqn, description, existing)
     }
     this.types.set(fqn, type)
+    type.init()
 
     const json = type.toJSON()
     if (existing) {
