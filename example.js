@@ -1,4 +1,4 @@
-const Hyperschema = require('.')
+const Hyperschema = require('./builder.cjs')
 
 const schema = Hyperschema.from('./spec')
 const ns1 = schema.namespace('namespace-1')
