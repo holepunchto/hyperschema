@@ -29,9 +29,7 @@ class ResolvedType {
     this.version = -1
   }
 
-  init () {
-    // if it needs deferred init
-  }
+  link () {}
 
   frameable () {
     return false
@@ -155,10 +153,9 @@ class StructField {
     this.struct = struct
     this.flag = flag
 
-    this.type = hyperschema.resolve(description.type)
-    if (!this.type) throw new Error(`Cannot resolve field type ${description.type} in ${this.name}`)
+    this.type = hyperschema.resolve(description.type) || null
+    this.typeFqn = this.type ? this.type.fqn : description.type
 
-    this.framed = this.type.frameable()
     this.array = !!this.description.array
 
     this.version = description.version || hyperschema.version
@@ -166,8 +163,9 @@ class StructField {
     if (this.struct.existing) {
       const tag = `${this.struct.fqn}/${this.description.name}`
       const prevField = this.struct.existing.fields[position]
+
       if (prevField) {
-        if (prevField.type.fqn !== this.type.fqn) {
+        if (prevField.typeFqn !== this.typeFqn) {
           throw new Error(`Field was modified: ${tag}`)
         } else if (prevField.required !== this.required) {
           throw new Error(`A required field must always stay required: ${tag}`)
@@ -180,12 +178,21 @@ class StructField {
     }
   }
 
+  link () {
+    if (this.type === null) this.type = this.hyperschema.resolve(this.description.type) || null
+    if (this.type === null) throw new Error(`Cannot resolve field type ${this.description.type} in ${this.name}`)
+  }
+
+  get framed () {
+    return this.type.frameable()
+  }
+
   toJSON () {
     return {
       name: this.description.name,
       required: this.description.required,
       array: this.description.array,
-      type: this.type.fqn,
+      type: this.typeFqn,
       version: this.version
     }
   }
@@ -240,6 +247,7 @@ class Struct extends ResolvedType {
 
     this.optionals = []
     this.flagsPosition = -1
+    this.linked = 0
 
     this.compact = !!description.compact
 
@@ -267,11 +275,6 @@ class Struct extends ResolvedType {
       this.hyperschema.maybeBumpVersion()
       this.version = this.hyperschema.version
     }
-  }
-
-  init () {
-    const hyperschema = this.hyperschema
-    const description = this.description
 
     for (let i = 0; i < description.fields.length; i++) {
       const fieldDescription = description.fields[i]
@@ -295,6 +298,10 @@ class Struct extends ResolvedType {
         }
       }
     }
+  }
+
+  link () {
+    for (const f of this.fields) f.link()
   }
 
   frameable () {
@@ -362,6 +369,10 @@ module.exports = class Hyperschema {
     if (this.versioned) this.version += 1
   }
 
+  linkAll () {
+    for (const t of this.types.values()) t.link()
+  }
+
   register (description) {
     const fqn = this._getFullyQualifiedName(description)
     const existing = this.types.get(fqn)
@@ -378,7 +389,6 @@ module.exports = class Hyperschema {
       type = new Struct(this, fqn, description, existing)
     }
     this.types.set(fqn, type)
-    type.init()
 
     const json = type.toJSON()
     if (existing) {
@@ -407,11 +417,15 @@ module.exports = class Hyperschema {
   }
 
   toJSON () {
+    this.linkAll()
+
     const json = { version: this.version, schema: this.schema.filter(t => !t.derived) }
     return json
   }
 
   toCode ({ esm = this.constructor.esm } = {}) {
+    this.linkAll()
+
     return generateCode(this, { esm })
   }
 
@@ -420,6 +434,8 @@ module.exports = class Hyperschema {
       opts = dir
       dir = null
     }
+
+    hyperschema.linkAll()
 
     if (!dir) dir = hyperschema.dir
     fs.mkdirSync(dir, { recursive: true })
