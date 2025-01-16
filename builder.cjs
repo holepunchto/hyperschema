@@ -97,7 +97,7 @@ class ExternalType extends ResolvedType {
     super(hyperschema, fqn, description, existing)
 
     this.isExternal = true
-    this.filename = hyperschema.namespaces.get(description.namespace).external
+    this.filename = hyperschema.namespaces.get(description.namespace)?.external || null
     this.external = description.external
   }
 
