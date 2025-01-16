@@ -97,12 +97,12 @@ class ExternalType extends ResolvedType {
     super(hyperschema, fqn, description, existing)
 
     this.isExternal = true
+    this.filename = hyperschema.namespaces.get(description.namespace).external
     this.external = description.external
   }
 
   require (filename) {
-    console.log(p.join(filename, '..'), this.external, '<--')
-    return p.relative(p.join(filename, '..'), p.resolve(this.external))
+    return p.relative(p.join(filename, '..'), p.resolve(this.filename))
       .replaceAll('\\', '/')
   }
 
@@ -110,7 +110,7 @@ class ExternalType extends ResolvedType {
     return {
       name: this.description.name,
       namespace: this.namespace,
-      external: true
+      external: this.description.external
     }
   }
 }
@@ -347,6 +347,11 @@ class HyperschemaNamespace {
   constructor (hyperschema, name) {
     this.hyperschema = hyperschema
     this.name = name
+    this.external = null
+  }
+
+  require (filename) {
+    this.external = filename
   }
 
   register (description) {
