@@ -25,6 +25,7 @@ class ResolvedType {
     this.isStruct = false
     this.isArray = false
     this.isAlias = false
+    this.isExternal = false
 
     this.version = -1
   }
@@ -87,6 +88,29 @@ class Alias extends ResolvedType {
       namespace: this.namespace,
       alias: this.type.fqn,
       version: this.version
+    }
+  }
+}
+
+class ExternalType extends ResolvedType {
+  constructor (hyperschema, fqn, description, existing) {
+    super(hyperschema, fqn, description, existing)
+
+    this.isExternal = true
+    this.filename = hyperschema.namespaces.get(description.namespace).external
+    this.external = description.external
+  }
+
+  require (filename) {
+    return p.relative(p.join(filename, '..'), p.resolve(this.filename))
+      .replaceAll('\\', '/')
+  }
+
+  toJSON () {
+    return {
+      name: this.description.name,
+      namespace: this.namespace,
+      external: this.description.external
     }
   }
 }
@@ -323,6 +347,11 @@ class HyperschemaNamespace {
   constructor (hyperschema, name) {
     this.hyperschema = hyperschema
     this.name = name
+    this.external = null
+  }
+
+  require (filename) {
+    this.external = filename
   }
 
   register (description) {
@@ -386,6 +415,8 @@ module.exports = class Hyperschema {
       type = new Enum(this, fqn, description, existing)
     } else if (description.array) {
       type = new Array(this, fqn, description, existing)
+    } else if (description.external) {
+      type = new ExternalType(this, fqn, description, existing)
     } else {
       type = new Struct(this, fqn, description, existing)
     }
@@ -424,10 +455,10 @@ module.exports = class Hyperschema {
     return json
   }
 
-  toCode ({ esm = this.constructor.esm } = {}) {
+  toCode ({ esm = this.constructor.esm, filename } = {}) {
     this.linkAll()
 
-    return generateCode(this, { esm })
+    return generateCode(this, { esm, filename })
   }
 
   static toDisk (hyperschema, dir, opts) {
@@ -445,7 +476,7 @@ module.exports = class Hyperschema {
     const codePath = p.join(p.resolve(dir), CODE_FILE_NAME)
 
     fs.writeFileSync(jsonPath, JSON.stringify(hyperschema.toJSON(), null, 2), { encoding: 'utf-8' })
-    fs.writeFileSync(codePath, hyperschema.toCode(opts), { encoding: 'utf-8' })
+    fs.writeFileSync(codePath, hyperschema.toCode({ ...opts, filename: codePath }), { encoding: 'utf-8' })
   }
 
   static from (json, opts) {
