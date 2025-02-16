@@ -10,6 +10,7 @@
     "runtime.cjs"
   ],
   "exports": {
+    "./package": "./package.json",
     ".": {
       "import": "./builder.mjs",
       "default": "./builder.cjs"
