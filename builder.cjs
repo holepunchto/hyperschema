@@ -239,10 +239,6 @@ class Array extends ResolvedType {
       throw new Error(`Array ${this.fqn}: required 'name' definition is missing`)
     }
 
-    if (!description.namespace) {
-      throw new Error(`Array ${this.fqn}: required 'namespace' definition is missing`)
-    }
-
     if (this.existing) {
       if (this.existing.type.fqn !== this.type.fqn) {
         throw new Error(`Array was modified: ${this.fqn}`)
