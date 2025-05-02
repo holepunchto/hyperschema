@@ -125,8 +125,8 @@ Persist the generated encodings for a Hyperschema instance (previously loaded wi
 #### `const ns = schema.namespace(name)`
 Return a new schema namespace. All structs/aliases for this namespace will be registered with the `@name` prefix. You can then reference these structs/aliases in subsequent definitions.
 
-#### `schema.register(definition)`
-Register a new schema/alias definition, as described in the Schema Definition section above.
+#### `ns.register(definition)`
+Register a new schema/alias definition on a namespace, as described in the Schema Definition section above.
 
 ### License
 Apache 2.0
