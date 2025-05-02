@@ -481,3 +481,39 @@ test('basic enums (strings)', async t => {
 
   t.alike(schema.module.getEnum('@test/test-enum'), { hello: 'hello', world: 'world' })
 })
+
+test('basic no namespace', async t => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(schema => {
+    schema.register({
+      name: 'value',
+      fields: [
+        {
+          name: 'test',
+          type: 'uint',
+          required: true
+        }
+      ]
+    })
+
+    schema.register({
+      name: 'optionalValue',
+      fields: [
+        {
+          name: 'value',
+          type: 'value',
+          required: false
+        }
+      ]
+    })
+  })
+
+  {
+    const enc = schema.module.resolveStruct('optionalValue')
+    const buf = c.encode(enc, { value: { test: 1 } })
+    const dec = c.decode(enc, buf)
+
+    t.alike(dec, { value: { test: 1 } })
+  }
+})
