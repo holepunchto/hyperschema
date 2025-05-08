@@ -481,3 +481,32 @@ test('basic enums (strings)', async t => {
 
   t.alike(schema.module.getEnum('@test/test-enum'), { hello: 'hello', world: 'world' })
 })
+
+test('basic alias', async t => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-alias',
+      alias: 'string'
+    })
+
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'foo',
+          type: '@test/test-alias'
+        }
+      ]
+    })
+  })
+
+  const enc = schema.module.getAlias('@test/test-alias')
+
+  const buf = c.encode(enc, 'hello')
+  const dec = c.decode(enc, buf)
+
+  t.is(dec, 'hello')
+})
