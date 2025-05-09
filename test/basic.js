@@ -638,3 +638,125 @@ test('basic json', async t => {
     t.alike(dec, { foo: { here: 'is json' } })
   }
 })
+
+test('union type registers correctly', async t => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'metadata',
+      union: [
+        { type: 'string' },
+        { type: 'bool' },
+        { type: 'uint64' }
+      ]
+    })
+  })
+
+  const json = schema.json
+
+  t.is(json.schema.length, 1)
+  t.is(json.schema[0].name, 'metadata')
+  t.is(json.schema[0].namespace, 'test')
+  t.ok(Array.isArray(json.schema[0].union), 'has union array')
+  t.alike(
+    json.schema[0].union.map(v => v.type),
+    ['string', 'bool', 'uint64']
+  )
+  t.is(json.version, 1)
+})
+
+test('union roundtrip encode/decode', async t => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'point',
+      fields: [
+        { name: 'x', type: 'uint', required: true },
+        { name: 'y', type: 'uint', required: true }
+      ]
+    })
+
+    ns.register({
+      name: 'metadata',
+      union: [
+        { type: 'string' },
+        { type: 'bool' },
+        { type: '@test/point' }
+      ]
+    })
+
+    ns.register({
+      name: 'struct-test',
+      fields: [
+        { name: 'title', type: 'string', required: true },
+        { name: 'metadata', type: '@test/metadata', required: true }
+      ]
+    })
+  })
+
+  const enc = schema.module.resolveStruct('@test/struct-test')
+
+  const examples = [
+    { title: 'string test', metadata: { name: 'string', type: 'string', value: 'hello' } },
+    { title: 'bool test', metadata: { name: 'bool', type: 'bool', value: true } },
+    { title: 'struct test', metadata: { name: '@test/point', type: '@test/point', value: { x: 3, y: 4 } } }
+  ]
+
+  for (const input of examples) {
+    const buf = c.encode(enc, input)
+    const output = c.decode(enc, buf)
+    t.alike(output, input)
+  }
+})
+
+test('union names', async t => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'point',
+      fields: [
+        { name: 'x', type: 'uint', required: true },
+        { name: 'y', type: 'uint', required: true }
+      ]
+    })
+
+    ns.register({
+      name: 'metadata',
+      union: [
+        { name: 'id', type: 'string' },
+        { name: 'exists', type: 'bool' },
+        { name: 'point', type: '@test/point' }
+      ]
+    })
+
+    ns.register({
+      name: 'struct-test',
+      fields: [
+        { name: 'title', type: 'string', required: true },
+        { name: 'metadata', type: '@test/metadata', required: true }
+      ]
+    })
+  })
+
+  const enc = schema.module.resolveStruct('@test/struct-test')
+
+  const examples = [
+    { title: 'string test', metadata: { name: 'id', type: 'string', value: 'hello' } },
+    { title: 'bool test', metadata: { name: 'exists', type: 'bool', value: true } },
+    { title: 'struct test', metadata: { name: 'point', type: '@test/point', value: { x: 3, y: 4 } } }
+  ]
+
+  for (const input of examples) {
+    const buf = c.encode(enc, input)
+    const output = c.decode(enc, buf)
+    t.alike(output, input)
+  }
+})
