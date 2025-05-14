@@ -511,7 +511,7 @@ test('versioned struct', async t => {
 
     ns.register({
       name: 'versioned',
-      versioned: [
+      versions: [
         {
           version: 0,
           type: '@test/v0',

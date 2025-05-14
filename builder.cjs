@@ -268,11 +268,11 @@ class VersionedType extends ResolvedType {
     this.default = null
     this.filename = hyperschema.namespaces.get(description.namespace)?.external || null
 
-    if (!description.versioned) {
-      throw new Error(`VersionedType ${this.fqn}: required 'versioned' definition is missing`)
+    if (!description.versions) {
+      throw new Error(`VersionedType ${this.fqn}: required 'versions' definition is missing`)
     }
 
-    this.versions = description.versioned.map(v => {
+    this.versions = description.versions.map(v => {
       return {
         type: hyperschema.resolve(v.type),
         map: v.map || null
@@ -467,7 +467,7 @@ module.exports = class Hyperschema {
       type = new Array(this, fqn, description, existing)
     } else if (description.external) {
       type = new ExternalType(this, fqn, description, existing)
-    } else if (description.versioned) {
+    } else if (description.versions) {
       type = new VersionedType(this, fqn, description, existing)
     } else {
       type = new Struct(this, fqn, description, existing)
