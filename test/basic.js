@@ -1,5 +1,6 @@
 const test = require('brittle')
 const c = require('compact-encoding')
+const path = require('path')
 
 const { createTestSchema } = require('./helpers')
 
@@ -482,11 +483,13 @@ test('basic enums (strings)', async t => {
   t.alike(schema.module.getEnum('@test/test-enum'), { hello: 'hello', world: 'world' })
 })
 
-test('versioned struct', async t => {
+test.solo('versioned struct', async t => {
   const schema = await createTestSchema(t)
 
   await schema.rebuild(schema => {
     const ns = schema.namespace('test')
+
+    ns.require(path.join(__dirname, 'helpers/external.js'))
 
     ns.register({
       name: 'v0',
@@ -510,10 +513,12 @@ test('versioned struct', async t => {
       name: 'versioned',
       versioned: [
         {
+          version: 0,
           type: '@test/v0',
-          map: function (m) { return { value: Number(m.value) } }
+          map: 'map'
         },
         {
+          version: 1,
           type: '@test/v1'
         }
       ]

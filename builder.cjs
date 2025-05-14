@@ -266,6 +266,7 @@ class Versioned extends ResolvedType {
     super(hyperschema, fqn, description, existing)
     this.isVersioned = true
     this.default = null
+    this.filename = hyperschema.namespaces.get(description.namespace)?.external || null
 
     if (!description.versioned) {
       throw new Error(`Versioned ${this.fqn}: required 'versioned' definition is missing`)
@@ -274,7 +275,7 @@ class Versioned extends ResolvedType {
     this.versions = description.versioned.map(v => {
       return {
         type: hyperschema.resolve(v.type),
-        map: v.map
+        map: v.map || null
       }
     })
 
@@ -295,11 +296,16 @@ class Versioned extends ResolvedType {
     }
   }
 
+  require (filename) {
+    return p.relative(p.join(filename, '..'), p.resolve(this.filename))
+      .replaceAll('\\', '/')
+  }
+
   toJSON () {
     return {
       name: this.name,
       namespace: this.namespace,
-      versions: this.versions.map(version => version.type.toJSON())
+      versions: this.versions.map(version => ({ type: version.type.fqn, map: version.map }))
     }
   }
 }
