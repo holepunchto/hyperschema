@@ -261,7 +261,7 @@ class Array extends ResolvedType {
   }
 }
 
-class Versioned extends ResolvedType {
+class VersionedType extends ResolvedType {
   constructor (hyperschema, fqn, description, existing) {
     super(hyperschema, fqn, description, existing)
     this.isVersioned = true
@@ -269,7 +269,7 @@ class Versioned extends ResolvedType {
     this.filename = hyperschema.namespaces.get(description.namespace)?.external || null
 
     if (!description.versioned) {
-      throw new Error(`Versioned ${this.fqn}: required 'versioned' definition is missing`)
+      throw new Error(`VersionedType ${this.fqn}: required 'versioned' definition is missing`)
     }
 
     this.versions = description.versioned.map(v => {
@@ -282,16 +282,16 @@ class Versioned extends ResolvedType {
     this.framed = true
 
     if (!description.name) {
-      throw new Error(`Versioned ${this.fqn}: required 'name' definition is missing`)
+      throw new Error(`VersionedType ${this.fqn}: required 'name' definition is missing`)
     }
 
     if (!description.namespace) {
-      throw new Error(`Versioned ${this.fqn}: required 'namespace' definition is missing`)
+      throw new Error(`VersionedType ${this.fqn}: required 'namespace' definition is missing`)
     }
 
     if (this.existing) {
       if (this.existing.type.fqn !== this.type.fqn) {
-        throw new Error(`Versioned was modified: ${this.fqn}`)
+        throw new Error(`VersionedType was modified: ${this.fqn}`)
       }
     }
   }
@@ -468,7 +468,7 @@ module.exports = class Hyperschema {
     } else if (description.external) {
       type = new ExternalType(this, fqn, description, existing)
     } else if (description.versioned) {
-      type = new Versioned(this, fqn, description, existing)
+      type = new VersionedType(this, fqn, description, existing)
     } else {
       type = new Struct(this, fqn, description, existing)
     }

@@ -483,7 +483,7 @@ test('basic enums (strings)', async t => {
   t.alike(schema.module.getEnum('@test/test-enum'), { hello: 'hello', world: 'world' })
 })
 
-test.solo('versioned struct', async t => {
+test('versioned struct', async t => {
   const schema = await createTestSchema(t)
 
   await schema.rebuild(schema => {
@@ -527,10 +527,10 @@ test.solo('versioned struct', async t => {
 
   {
     const enc = schema.module.resolveStruct('@test/versioned')
-    const expectedv0 = { version: 0, value: 10 }
-    const expected = { version: 1, value: 10 }
+    const expectedv0 = { version: 0, data: { value: 10 } }
+    const expected = { version: 1, data: { value: 10 } }
 
-    t.alike(expectedv0, c.decode(enc, c.encode(enc, { version: 0, value: '10' })))
+    t.alike(expectedv0, c.decode(enc, c.encode(enc, { version: 0, data: { value: '10' } })))
     t.alike(expected, c.decode(enc, c.encode(enc, expected)))
   }
 })
