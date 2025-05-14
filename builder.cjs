@@ -275,6 +275,7 @@ class VersionedType extends ResolvedType {
     this.versions = description.versions.map(v => {
       return {
         type: hyperschema.resolve(v.type),
+        version: v.version,
         map: v.map || null
       }
     })

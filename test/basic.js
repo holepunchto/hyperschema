@@ -518,7 +518,7 @@ test('versioned struct', async t => {
           map: 'map'
         },
         {
-          version: 1,
+          version: 2,
           type: '@test/v1'
         }
       ]
@@ -528,9 +528,11 @@ test('versioned struct', async t => {
   {
     const enc = schema.module.resolveStruct('@test/versioned')
     const expectedv0 = { version: 0, data: { value: 10 } }
-    const expected = { version: 1, data: { value: 10 } }
+    const expectedv1 = { version: 1, data: { value: 10 } }
+    const expected = { version: 2, data: { value: 10 } }
 
     t.alike(expectedv0, c.decode(enc, c.encode(enc, { version: 0, data: { value: '10' } })))
+    t.alike(expectedv1, c.decode(enc, c.encode(enc, { version: 1, data: { value: 10 } })))
     t.alike(expected, c.decode(enc, c.encode(enc, expected)))
   }
 })
