@@ -26,6 +26,7 @@ class ResolvedType {
     this.isArray = false
     this.isAlias = false
     this.isExternal = false
+    this.isVersioned = false
 
     this.version = -1
   }
@@ -260,6 +261,49 @@ class Array extends ResolvedType {
   }
 }
 
+class Versioned extends ResolvedType {
+  constructor (hyperschema, fqn, description, existing) {
+    super(hyperschema, fqn, description, existing)
+    this.isVersioned = true
+    this.default = null
+
+    if (!description.versioned) {
+      throw new Error(`Versioned ${this.fqn}: required 'versioned' definition is missing`)
+    }
+
+    this.versions = description.versioned.map(v => {
+      return {
+        type: hyperschema.resolve(v.type),
+        map: v.map
+      }
+    })
+
+    this.framed = true
+
+    if (!description.name) {
+      throw new Error(`Versioned ${this.fqn}: required 'name' definition is missing`)
+    }
+
+    if (!description.namespace) {
+      throw new Error(`Versioned ${this.fqn}: required 'namespace' definition is missing`)
+    }
+
+    if (this.existing) {
+      if (this.existing.type.fqn !== this.type.fqn) {
+        throw new Error(`Versioned was modified: ${this.fqn}`)
+      }
+    }
+  }
+
+  toJSON () {
+    return {
+      name: this.name,
+      namespace: this.namespace,
+      versions: this.versions.map(version => version.type.toJSON())
+    }
+  }
+}
+
 class Struct extends ResolvedType {
   constructor (hyperschema, fqn, description, existing) {
     super(hyperschema, fqn, description, existing)
@@ -417,6 +461,8 @@ module.exports = class Hyperschema {
       type = new Array(this, fqn, description, existing)
     } else if (description.external) {
       type = new ExternalType(this, fqn, description, existing)
+    } else if (description.versioned) {
+      type = new Versioned(this, fqn, description, existing)
     } else {
       type = new Struct(this, fqn, description, existing)
     }
