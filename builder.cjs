@@ -26,6 +26,7 @@ class ResolvedType {
     this.isArray = false
     this.isAlias = false
     this.isExternal = false
+    this.isVersioned = false
 
     this.version = -1
   }
@@ -260,11 +261,66 @@ class Array extends ResolvedType {
   }
 }
 
+class VersionedType extends ResolvedType {
+  constructor (hyperschema, fqn, description, existing) {
+    super(hyperschema, fqn, description, existing)
+    this.isVersioned = true
+    this.default = null
+    this.filename = hyperschema.namespaces.get(description.namespace)?.external || null
+
+    if (!description.versions) {
+      throw new Error(`VersionedType ${this.fqn}: required 'versions' definition is missing`)
+    }
+
+    this.versions = description.versions.map(v => {
+      return {
+        type: hyperschema.resolve(v.type),
+        version: v.version,
+        map: v.map || null
+      }
+    })
+
+    for (const v of this.versions) {
+      v.type.expectsVersion = true
+    }
+
+    this.framed = true
+
+    if (!description.name) {
+      throw new Error(`VersionedType ${this.fqn}: required 'name' definition is missing`)
+    }
+
+    if (!description.namespace) {
+      throw new Error(`VersionedType ${this.fqn}: required 'namespace' definition is missing`)
+    }
+
+    if (this.existing) {
+      if (this.existing.type.fqn !== this.type.fqn) {
+        throw new Error(`VersionedType was modified: ${this.fqn}`)
+      }
+    }
+  }
+
+  require (filename) {
+    return p.relative(p.join(filename, '..'), p.resolve(this.filename))
+      .replaceAll('\\', '/')
+  }
+
+  toJSON () {
+    return {
+      name: this.name,
+      namespace: this.namespace,
+      versions: this.versions.map(version => ({ type: version.type.fqn, map: version.map, version: version.version }))
+    }
+  }
+}
+
 class Struct extends ResolvedType {
   constructor (hyperschema, fqn, description, existing) {
     super(hyperschema, fqn, description, existing)
     this.isStruct = true
     this.default = null
+    this.expectsVersion = false
 
     this.fields = []
     this.fieldsByName = new Map()
@@ -417,6 +473,8 @@ module.exports = class Hyperschema {
       type = new Array(this, fqn, description, existing)
     } else if (description.external) {
       type = new ExternalType(this, fqn, description, existing)
+    } else if (description.versions) {
+      type = new VersionedType(this, fqn, description, existing)
     } else {
       type = new Struct(this, fqn, description, existing)
     }
