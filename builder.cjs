@@ -320,7 +320,7 @@ class Struct extends ResolvedType {
     super(hyperschema, fqn, description, existing)
     this.isStruct = true
     this.default = null
-    this.expectVersion = false
+    this.expectsVersion = false
 
     this.fields = []
     this.fieldsByName = new Map()
