@@ -280,6 +280,10 @@ class VersionedType extends ResolvedType {
       }
     })
 
+    for (const v of this.versions) {
+      v.type.expectsVersion = true
+    }
+
     this.framed = true
 
     if (!description.name) {
@@ -316,6 +320,7 @@ class Struct extends ResolvedType {
     super(hyperschema, fqn, description, existing)
     this.isStruct = true
     this.default = null
+    this.expectVersion = false
 
     this.fields = []
     this.fieldsByName = new Map()
