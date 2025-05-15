@@ -310,7 +310,7 @@ class VersionedType extends ResolvedType {
     return {
       name: this.name,
       namespace: this.namespace,
-      versions: this.versions.map(version => ({ type: version.type.fqn, map: version.map }))
+      versions: this.versions.map(version => ({ type: version.type.fqn, map: version.map, version: version.version }))
     }
   }
 }
