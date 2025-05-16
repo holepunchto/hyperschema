@@ -411,7 +411,7 @@ class HyperschemaNamespace {
   }
 
   register (description) {
-    return this.hyperschema._register({
+    return this.hyperschema.register({
       ...description,
       namespace: this.name
     })
@@ -435,7 +435,7 @@ module.exports = class Hyperschema {
     if (json) {
       for (let i = 0; i < json.schema.length; i++) {
         const description = json.schema[i]
-        this._register(description)
+        this.register(description)
       }
     }
     this.initializing = false
@@ -459,7 +459,7 @@ module.exports = class Hyperschema {
     for (const t of this.types.values()) t.link()
   }
 
-  _register (description) {
+  register (description) {
     const fqn = this._getFullyQualifiedName(description)
     const existing = this.types.get(fqn)
     const existingPosition = this.positionsByType.get(fqn)
