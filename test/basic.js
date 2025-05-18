@@ -536,3 +536,134 @@ test('versioned struct', async t => {
     t.alike(expected, c.decode(enc, c.encode(enc, expected)))
   }
 })
+
+test('basic json type', async t => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'json-struct',
+      fields: [
+        {
+          name: 'jsonData',
+          type: 'json',
+          required: true
+        },
+        {
+          name: 'optionalJson',
+          type: 'json'
+        }
+      ]
+    })
+  })
+
+  t.is(schema.json.version, 1)
+  t.is(schema.module.version, 1)
+
+  const enc = schema.module.resolveStruct('@test/json-struct')
+
+  {
+    const expected = { jsonData: { foo: 'bar', baz: [1, 2, true, null] }, optionalJson: null }
+    const encoded = c.encode(enc, { jsonData: { foo: 'bar', baz: [1, 2, true, null] } })
+    const decoded = c.decode(enc, encoded)
+    t.alike(decoded, expected, 'should encode/decode a JSON object and handle optional field')
+  }
+
+  {
+    const expected = { jsonData: ['hello', { nested: 'world' }, 42], optionalJson: { check: 'this' } }
+    const encoded = c.encode(enc, expected)
+    const decoded = c.decode(enc, encoded)
+    t.alike(decoded, expected, 'should encode/decode a JSON array and include optional field when provided')
+  }
+
+  {
+    const expected = { jsonData: null, optionalJson: null }
+    const encoded = c.encode(enc, { jsonData: null })
+    const decoded = c.decode(enc, encoded)
+    t.alike(decoded, expected, 'should encode/decode a null JSON value')
+  }
+
+  {
+    const expected = { jsonData: 'a simple string', optionalJson: null }
+    const encoded = c.encode(enc, { jsonData: 'a simple string' })
+    const decoded = c.decode(enc, encoded)
+    t.alike(decoded, expected, 'should encode/decode a JSON string')
+  }
+
+  {
+    const expected = { jsonData: 123.45, optionalJson: null }
+    const encoded = c.encode(enc, { jsonData: 123.45 })
+    const decoded = c.decode(enc, encoded)
+    t.alike(decoded, expected, 'should encode/decode a JSON number')
+  }
+
+  {
+    const expected = { jsonData: true, optionalJson: null }
+    const encoded = c.encode(enc, { jsonData: true })
+    const decoded = c.decode(enc, encoded)
+    t.alike(decoded, expected, 'should encode/decode a JSON boolean (true)')
+  }
+
+  {
+    const expected = { jsonData: false, optionalJson: null }
+    const encoded = c.encode(enc, { jsonData: false })
+    const decoded = c.decode(enc, encoded)
+    t.alike(decoded, expected, 'should encode/decode a JSON boolean (false)')
+  }
+})
+
+test('basic ndjson type', async t => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'ndjson-struct',
+      fields: [
+        {
+          name: 'ndjsonData',
+          type: 'ndjson',
+          required: true
+        },
+        {
+          name: 'optionalNdjson',
+          type: 'ndjson' // optional by default
+        }
+      ]
+    })
+  })
+
+  t.is(schema.json.version, 1)
+  t.is(schema.module.version, 1)
+
+  const enc = schema.module.resolveStruct('@test/ndjson-struct')
+
+  {
+    const expected = { ndjsonData: [{ foo: 'bar' }, { baz: 123 }], optionalNdjson: null }
+    const encoded = c.encode(enc, { ndjsonData: [{ foo: 'bar' }, { baz: 123 }] })
+    const decoded = c.decode(enc, encoded)
+    t.alike(decoded, expected, 'should encode/decode an array of JSON objects for ndjson and handle optional field')
+  }
+
+  {
+    const expected = { ndjsonData: [{ id: 1, msg: 'hello' }], optionalNdjson: [{ status: 'ok' }] }
+    const encoded = c.encode(enc, expected)
+    const decoded = c.decode(enc, encoded)
+    t.alike(decoded, expected, 'should encode/decode ndjson and include optional field when provided')
+  }
+
+  {
+    const expected = { ndjsonData: [], optionalNdjson: null }
+    const encoded = c.encode(enc, { ndjsonData: [] })
+    const decoded = c.decode(enc, encoded)
+    t.alike(decoded, expected, 'should encode/decode an empty array for ndjson')
+  }
+
+  {
+    const expected = { ndjsonData: null, optionalNdjson: null }
+    const encoded = c.encode(enc, { ndjsonData: null })
+    const decoded = c.decode(enc, encoded)
+    t.alike(decoded, expected, 'should encode/decode null for ndjson')
+  }
+})
