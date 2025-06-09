@@ -98,6 +98,7 @@ class ExternalType extends ResolvedType {
     super(hyperschema, fqn, description, existing)
 
     this.isExternal = true
+    this.default = null
     this.filename = hyperschema.namespaces.get(description.namespace)?.external || null
     this.external = description.external
   }
@@ -201,6 +202,10 @@ class StructField {
         this.version = hyperschema.version
       }
     }
+  }
+
+  getDefaultValue () {
+    return this.array ? null : this.type.default
   }
 
   link () {
