@@ -300,7 +300,7 @@ class VersionedType extends ResolvedType {
     }
 
     if (this.existing) {
-      if (this.existing.type.fqn !== this.type.fqn) {
+      if (this.existing.fqn !== fqn) {
         throw new Error(`VersionedType was modified: ${this.fqn}`)
       }
     }
