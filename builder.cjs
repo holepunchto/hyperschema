@@ -75,7 +75,7 @@ class Alias extends ResolvedType {
       this.version = existing.version
     } else if (!this.derived) {
       this.hyperschema.maybeBumpVersion()
-      this.version = this.hyperschema.version
+      this.version = this.hyperschema.initializing ? description.version : this.hyperschema.version
     }
   }
 
@@ -152,7 +152,7 @@ class Enum extends ResolvedType {
 
       this.enum.push({
         key,
-        version: prev ? prev.version : hyperschema.version
+        version: hyperschema.initializing ? d.version : (prev ? prev.version : hyperschema.version)
       })
     }
   }
