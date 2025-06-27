@@ -536,3 +536,77 @@ test('versioned struct', async t => {
     t.alike(expected, c.decode(enc, c.encode(enc, expected)))
   }
 })
+
+test('alias, enum, field versions should not sync with schema version if no change in definition', async t => {
+  const schema = await createTestSchema(t)
+
+  // write to file a schema version mismatched with enum and alias versions
+  await schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-alias',
+      alias: 'uint'
+    })
+    ns.register({
+      name: 'test-enum',
+      enum: [
+        'hello',
+        'world'
+      ]
+    })
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: 'uint',
+          required: true
+        },
+        {
+          name: 'field2',
+          type: 'uint'
+        }
+      ]
+    })
+    schema.version = 10 // create a gap in schema version
+  })
+
+  // load again from file
+  // rebuild with no change in definition
+  await schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-alias',
+      alias: 'uint'
+    })
+    ns.register({
+      name: 'test-enum',
+      enum: [
+        'hello',
+        'world'
+      ]
+    })
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: 'uint',
+          required: true
+        },
+        {
+          name: 'field2',
+          type: 'uint'
+        }
+      ]
+    })
+  })
+
+  t.is(schema.json.version, 10)
+  t.is(schema.module.version, 10)
+  t.is(schema.json.schema[0].version, 1) // no change in alias version
+  t.is(schema.json.schema[1].enum[0].version, 1) // no change in enum1 version
+  t.is(schema.json.schema[1].enum[1].version, 1) // no change in enum2 version
+  t.is(schema.json.schema[2].fields[0].version, 1) // no change in field1 version
+  t.is(schema.json.schema[2].fields[1].version, 1) // no change in field2 version
+})
