@@ -610,3 +610,31 @@ test('alias, enum, field versions should not sync with schema version if no chan
   t.is(schema.json.schema[2].fields[0].version, 1) // no change in field1 version
   t.is(schema.json.schema[2].fields[1].version, 1) // no change in field2 version
 })
+
+test('basic json', async t => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(schema => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'test-json',
+      compact: true,
+      fields: [
+        {
+          name: 'foo',
+          type: 'json',
+          required: true
+        }
+      ]
+    })
+  })
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-json')
+    const buf = c.encode(enc, { foo: { here: 'is json' } })
+    const dec = c.decode(enc, buf)
+
+    t.alike(dec, { foo: { here: 'is json' } })
+  }
+})
