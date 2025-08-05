@@ -361,8 +361,14 @@ class Struct extends ResolvedType {
       this.version = this.hyperschema.initializing ? this.description.version : this.hyperschema.version
     }
 
+    let sawOptional = false
     for (let i = 0; i < description.fields.length; i++) {
       const fieldDescription = description.fields[i]
+
+      if (fieldDescription.required && sawOptional) {
+        throw new Error('Cannot define a required field after an optional field')
+      }
+      sawOptional = sawOptional || !fieldDescription.required
 
       // bools can only be set in the flag, so auto downgrade the from required
       // TODO: if we add semantic meaning to required, ie "user MUST set this", we should
