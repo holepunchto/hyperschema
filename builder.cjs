@@ -368,7 +368,7 @@ class Struct extends ResolvedType {
       if (fieldDescription.required && sawOptional) {
         throw new Error('Cannot define a required field after an optional field')
       }
-      sawOptional = sawOptional || !fieldDescription.required
+      if (!sawOptional) sawOptional = !fieldDescription.required
 
       // bools can only be set in the flag, so auto downgrade the from required
       // TODO: if we add semantic meaning to required, ie "user MUST set this", we should
