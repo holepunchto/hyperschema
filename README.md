@@ -102,7 +102,7 @@ All struct definitions must take the following form:
 #### Struct Definition
 * `name`: (required) A string name for you struct
 * `fields`: (required) (defined below)
-* `compact`: (optional) If this struct will be extended in the future (if embedded in another struct, will not frame the encoding)
+* `compact`: (optional) If true, this struct cannot be extended in the future (if embedded in another struct, will not frame the encoding)
 * `flagsPosition`: (optional) The position that the flags for optional fields should be encoded at (default to before first optional field)
 
 #### Struct Field Definitions
