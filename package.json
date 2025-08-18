@@ -7,7 +7,9 @@
     "builder.mjs",
     "builder.cjs",
     "runtime.mjs",
-    "runtime.cjs"
+    "runtime.cjs",
+    "primitives.mjs",
+    "primitives.cjs"
   ],
   "exports": {
     "./package": "./package.json",
@@ -18,6 +20,10 @@
     "./runtime": {
       "import": "./runtime.mjs",
       "default": "./runtime.cjs"
+    },
+    "./primitives": {
+      "import": "./primitives.mjs",
+      "default": "./primitives.cjs"
     }
   },
   "imports": {
