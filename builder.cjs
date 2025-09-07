@@ -172,7 +172,12 @@ class UnionVariant {
   constructor (hyperschema, union, position, description) {
     this.hyperschema = hyperschema
     this.description = description
-    this.name = this.description.name || this.description.type
+
+    if (!this.description.name) {
+      throw new Error(`Union variant at position ${position} in ${union.fqn} must have a name`)
+    }
+
+    this.name = this.description.name
 
     this.position = position
     this.union = union
@@ -184,14 +189,14 @@ class UnionVariant {
 
     if (this.union.existing) {
       const tag = `${this.union.fqn}/${this.description.name}`
-      const prevVariant = this.struct.existing.variants[position]
+      const prevVariant = this.union.existing.variants[position]
 
       if (prevVariant) {
         if (prevVariant.typeFqn !== this.typeFqn) {
           throw new Error(`Variant was modified: ${tag}`)
         }
         this.version = prevVariant.version
-      } else if (!this.struct.derived) {
+      } else if (!this.union.derived) {
         hyperschema.maybeBumpVersion()
         this.version = hyperschema.version
       }
@@ -221,12 +226,16 @@ class Union extends ResolvedType {
     this.variants = []
     this.variantsByName = new Map()
 
+    if (!description.name) {
+      throw new Error(`Union ${this.fqn}: required 'name' definition is missing`)
+    }
+
     if (!description.union || description.union.length === 0) {
       throw new Error(`Union ${fqn} must define a non-empty 'union' array`)
     }
 
     if (this.existing) {
-      const oldLength = this.existing.union.length
+      const oldLength = this.existing.variants.length
       const newLength = this.description.union.length
       if (oldLength > newLength) {
         throw new Error(`A variant was removed: ${this.fqn}`)
@@ -238,14 +247,7 @@ class Union extends ResolvedType {
 
     for (let i = 0; i < description.union.length; i++) {
       const variantDescription = description.union[i]
-      const type = hyperschema.resolve(variantDescription.type)
-
-      if (!type) {
-        throw new Error(`Cannot resolve union variant type ${variantDescription.type} in ${fqn}`)
-      }
-
       const variant = new UnionVariant(hyperschema, this, i, variantDescription)
-
       this.variants.push(variant)
       this.variantsByName.set(variant.name, variant)
     }
@@ -260,7 +262,7 @@ class Union extends ResolvedType {
       name: this.name,
       namespace: this.namespace,
       union: this.variants.map((variant) => {
-        return { type: variant.type.fqn }
+        return { name: variant.name, type: variant.type.fqn }
       })
     }
   }

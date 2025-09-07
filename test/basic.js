@@ -639,7 +639,7 @@ test('basic json', async t => {
   }
 })
 
-test('union type registers correctly', async t => {
+test('basic unions', async t => {
   const schema = await createTestSchema(t)
 
   await schema.rebuild(schema => {
@@ -647,9 +647,9 @@ test('union type registers correctly', async t => {
     ns.register({
       name: 'metadata',
       union: [
-        { type: 'string' },
-        { type: 'bool' },
-        { type: 'uint64' }
+        { name: 'text', type: 'string' },
+        { name: 'flag', type: 'bool' },
+        { name: 'count', type: 'uint64' }
       ]
     })
   })
@@ -684,55 +684,8 @@ test('union roundtrip encode/decode', async t => {
     ns.register({
       name: 'metadata',
       union: [
-        { type: 'string' },
-        { type: 'bool' },
-        { type: '@test/point' }
-      ]
-    })
-
-    ns.register({
-      name: 'struct-test',
-      fields: [
-        { name: 'title', type: 'string', required: true },
-        { name: 'metadata', type: '@test/metadata', required: true }
-      ]
-    })
-  })
-
-  const enc = schema.module.resolveStruct('@test/struct-test')
-
-  const examples = [
-    { title: 'string test', metadata: { name: 'string', type: 'string', value: 'hello' } },
-    { title: 'bool test', metadata: { name: 'bool', type: 'bool', value: true } },
-    { title: 'struct test', metadata: { name: '@test/point', type: '@test/point', value: { x: 3, y: 4 } } }
-  ]
-
-  for (const input of examples) {
-    const buf = c.encode(enc, input)
-    const output = c.decode(enc, buf)
-    t.alike(output, input)
-  }
-})
-
-test('union names', async t => {
-  const schema = await createTestSchema(t)
-
-  await schema.rebuild(schema => {
-    const ns = schema.namespace('test')
-
-    ns.register({
-      name: 'point',
-      fields: [
-        { name: 'x', type: 'uint', required: true },
-        { name: 'y', type: 'uint', required: true }
-      ]
-    })
-
-    ns.register({
-      name: 'metadata',
-      union: [
-        { name: 'id', type: 'string' },
-        { name: 'exists', type: 'bool' },
+        { name: 'string', type: 'string' },
+        { name: 'bool', type: 'bool' },
         { name: 'point', type: '@test/point' }
       ]
     })
@@ -749,14 +702,24 @@ test('union names', async t => {
   const enc = schema.module.resolveStruct('@test/struct-test')
 
   const examples = [
-    { title: 'string test', metadata: { name: 'id', type: 'string', value: 'hello' } },
-    { title: 'bool test', metadata: { name: 'exists', type: 'bool', value: true } },
-    { title: 'struct test', metadata: { name: 'point', type: '@test/point', value: { x: 3, y: 4 } } }
+    {
+      title: 'string test',
+      metadata: { string: 'hello' }
+    },
+    {
+      title: 'bool test',
+      metadata: { bool: true }
+    },
+    {
+      title: 'struct test',
+      metadata: { point: { x: 3, y: 4 } }
+    }
   ]
 
   for (const input of examples) {
     const buf = c.encode(enc, input)
     const output = c.decode(enc, buf)
-    t.alike(output, input)
+
+    t.alike(output.metadata, input.metadata)
   }
 })

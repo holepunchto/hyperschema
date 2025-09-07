@@ -237,4 +237,20 @@ ns1.register({
   ]
 })
 
+ns1.register({
+  name: 'basic-union',
+  union: [
+    { name: 'text', type: 'string' },
+    { name: 'flag', type: 'bool' }
+  ]
+})
+
+ns1.register({
+  name: 'basic-embedded-union',
+  fields: [
+    { name: 'title', type: 'string', required: true },
+    { name: 'option', type: '@namespace-1/basic-union', required: true }
+  ]
+})
+
 Hyperschema.toDisk(schema)
