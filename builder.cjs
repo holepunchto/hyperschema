@@ -22,6 +22,7 @@ class ResolvedType {
 
     this.isPrimitive = false
     this.isEnum = false
+    this.isUnion = false
     this.isStruct = false
     this.isArray = false
     this.isAlias = false
@@ -163,6 +164,106 @@ class Enum extends ResolvedType {
       namespace: this.namespace,
       offset: this.offset,
       enum: this.enum
+    }
+  }
+}
+
+class UnionVariant {
+  constructor (hyperschema, union, position, description) {
+    this.hyperschema = hyperschema
+    this.description = description
+
+    if (!this.description.name) {
+      throw new Error(`Union variant at position ${position} in ${union.fqn} must have a name`)
+    }
+
+    this.name = this.description.name
+
+    this.position = position
+    this.union = union
+
+    this.type = hyperschema.resolve(description.type) || null
+    this.typeFqn = this.type ? this.type.fqn : description.type
+
+    this.version = description.version || hyperschema.version
+
+    if (this.union.existing) {
+      const tag = `${this.union.fqn}/${this.description.name}`
+      const prevVariant = this.union.existing.variants[position]
+
+      if (prevVariant) {
+        if (prevVariant.typeFqn !== this.typeFqn) {
+          throw new Error(`Variant was modified: ${tag}`)
+        }
+        this.version = prevVariant.version
+      } else if (!this.union.derived) {
+        hyperschema.maybeBumpVersion()
+        this.version = hyperschema.version
+      }
+    }
+  }
+
+  link () {
+    if (this.type === null) this.type = this.hyperschema.resolve(this.description.type) || null
+    if (this.type === null) throw new Error(`Cannot resolve union variant type ${this.description.type} in ${this.name}`)
+  }
+
+  toJSON () {
+    return {
+      name: this.description.name,
+      type: this.typeFqn,
+      version: this.version
+    }
+  }
+}
+
+class Union extends ResolvedType {
+  constructor (hyperschema, fqn, description, existing) {
+    super(hyperschema, fqn, description, existing)
+    this.isUnion = true
+    this.default = null
+
+    this.variants = []
+    this.variantsByName = new Map()
+
+    if (!description.name) {
+      throw new Error(`Union ${this.fqn}: required 'name' definition is missing`)
+    }
+
+    if (!description.union || description.union.length === 0) {
+      throw new Error(`Union ${fqn} must define a non-empty 'union' array`)
+    }
+
+    if (this.existing) {
+      const oldLength = this.existing.variants.length
+      const newLength = this.description.union.length
+      if (oldLength > newLength) {
+        throw new Error(`A variant was removed: ${this.fqn}`)
+      }
+    } else if (!this.derived) {
+      hyperschema.maybeBumpVersion()
+      this.version = hyperschema.version
+    }
+
+    for (let i = 0; i < description.union.length; i++) {
+      const variantDescription = description.union[i]
+      const variant = new UnionVariant(hyperschema, this, i, variantDescription)
+      this.variants.push(variant)
+      this.variantsByName.set(variant.name, variant)
+    }
+  }
+
+  link () {
+    for (const v of this.variants) v.link()
+  }
+
+  toJSON () {
+    return {
+      name: this.name,
+      namespace: this.namespace,
+      union: this.variants.map((variant) => {
+        return { name: variant.name, type: variant.type.fqn }
+      })
     }
   }
 }
@@ -474,6 +575,8 @@ module.exports = class Hyperschema {
       type = new Alias(this, fqn, description, existing)
     } else if (description.enum) {
       type = new Enum(this, fqn, description, existing)
+    } else if (description.union) {
+      type = new Union(this, fqn, description, existing)
     } else if (description.array) {
       type = new Array(this, fqn, description, existing)
     } else if (description.external) {
