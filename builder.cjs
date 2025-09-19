@@ -538,7 +538,7 @@ module.exports = class Hyperschema {
     const jsonPath = p.join(p.resolve(dir), JSON_FILE_NAME)
     const codePath = p.join(p.resolve(dir), CODE_FILE_NAME)
 
-    fs.writeFileSync(jsonPath, JSON.stringify(hyperschema.toJSON(), null, 2), { encoding: 'utf-8' })
+    fs.writeFileSync(jsonPath, JSON.stringify(hyperschema.toJSON(), null, 2) + '\n', { encoding: 'utf-8' })
     fs.writeFileSync(codePath, hyperschema.toCode({ ...opts, filename: codePath }), { encoding: 'utf-8' })
   }
 
