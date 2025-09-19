@@ -4,10 +4,10 @@ const path = require('path')
 
 const { createTestSchema } = require('./helpers')
 
-test('basic struct, all required fields, version bump', async t => {
+test('basic struct, all required fields, version bump', async (t) => {
   const schema = await createTestSchema(t)
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'test-struct',
@@ -30,7 +30,7 @@ test('basic struct, all required fields, version bump', async t => {
     t.alike(expected, c.decode(enc, c.encode(enc, expected)))
   }
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'test-struct',
@@ -59,10 +59,10 @@ test('basic struct, all required fields, version bump', async t => {
   }
 })
 
-test('basic struct, all required fields, no version bump', async t => {
+test('basic struct, all required fields, no version bump', async (t) => {
   const schema = await createTestSchema(t)
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'test-struct',
@@ -85,7 +85,7 @@ test('basic struct, all required fields, no version bump', async t => {
     t.alike(expected, c.decode(enc, c.encode(enc, expected)))
   }
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'test-struct',
@@ -103,10 +103,10 @@ test('basic struct, all required fields, no version bump', async t => {
   t.is(schema.module.version, 1)
 })
 
-test('basic struct, one optional fields, version bump', async t => {
+test('basic struct, one optional fields, version bump', async (t) => {
   const schema = await createTestSchema(t)
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'test-struct',
@@ -129,7 +129,7 @@ test('basic struct, one optional fields, version bump', async t => {
     t.alike(expected, c.decode(enc, c.encode(enc, expected)))
   }
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'test-struct',
@@ -157,10 +157,10 @@ test('basic struct, one optional fields, version bump', async t => {
   }
 })
 
-test('basic struct, one optional fields, type alias, version bump', async t => {
+test('basic struct, one optional fields, type alias, version bump', async (t) => {
   const schema = await createTestSchema(t)
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'test-alias',
@@ -187,7 +187,7 @@ test('basic struct, one optional fields, type alias, version bump', async t => {
     t.alike(expected, c.decode(enc, c.encode(enc, expected)))
   }
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'test-struct',
@@ -215,10 +215,10 @@ test('basic struct, one optional fields, type alias, version bump', async t => {
   }
 })
 
-test('basic nested struct', async t => {
+test('basic nested struct', async (t) => {
   const schema = await createTestSchema(t)
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'interior-struct',
@@ -252,10 +252,10 @@ test('basic nested struct', async t => {
   }
 })
 
-test('basic required field missing', async t => {
+test('basic required field missing', async (t) => {
   const schema = await createTestSchema(t)
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'test-struct',
@@ -284,10 +284,10 @@ test('basic required field missing', async t => {
   }
 })
 
-test('basic nested struct, version bump', async t => {
+test('basic nested struct, version bump', async (t) => {
   const schema = await createTestSchema(t)
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'interior-struct',
@@ -319,7 +319,7 @@ test('basic nested struct, version bump', async t => {
     t.alike(expected, c.decode(enc, c.encode(enc, expected)))
   }
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'interior-struct',
@@ -356,10 +356,10 @@ test('basic nested struct, version bump', async t => {
   }
 })
 
-test('basic array', async t => {
+test('basic array', async (t) => {
   const schema = await createTestSchema(t)
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
 
     ns.register({
@@ -390,17 +390,14 @@ test('basic array', async t => {
   }
 })
 
-test('basic enums', async t => {
+test('basic enums', async (t) => {
   const schema = await createTestSchema(t)
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'test-enum',
-      enum: [
-        'hello',
-        'world'
-      ]
+      enum: ['hello', 'world']
     })
 
     ns.register({
@@ -436,18 +433,15 @@ test('basic enums', async t => {
   t.alike(schema.module.getEnum('@test/test-enum'), { hello: 1, world: 2 })
 })
 
-test('basic enums (strings)', async t => {
+test('basic enums (strings)', async (t) => {
   const schema = await createTestSchema(t)
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'test-enum',
       strings: true,
-      enum: [
-        'hello',
-        'world'
-      ]
+      enum: ['hello', 'world']
     })
 
     ns.register({
@@ -480,33 +474,40 @@ test('basic enums (strings)', async t => {
     t.alike(dec, { foo: world })
   }
 
-  t.alike(schema.module.getEnum('@test/test-enum'), { hello: 'hello', world: 'world' })
+  t.alike(schema.module.getEnum('@test/test-enum'), {
+    hello: 'hello',
+    world: 'world'
+  })
 })
 
-test('versioned struct', async t => {
+test('versioned struct', async (t) => {
   const schema = await createTestSchema(t)
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
 
     ns.require(path.join(__dirname, 'helpers/external.js'))
 
     ns.register({
       name: 'v0',
-      fields: [{
-        name: 'value',
-        type: 'string',
-        required: true
-      }]
+      fields: [
+        {
+          name: 'value',
+          type: 'string',
+          required: true
+        }
+      ]
     })
 
     ns.register({
       name: 'v1',
-      fields: [{
-        name: 'value',
-        type: 'uint',
-        required: true
-      }]
+      fields: [
+        {
+          name: 'value',
+          type: 'uint',
+          required: true
+        }
+      ]
     })
 
     ns.register({
@@ -531,17 +532,20 @@ test('versioned struct', async t => {
     const expectedv1 = { version: 1, value: 10 }
     const expected = { version: 2, value: 10 }
 
-    t.alike(expectedv0, c.decode(enc, c.encode(enc, { version: 0, value: '10' })))
+    t.alike(
+      expectedv0,
+      c.decode(enc, c.encode(enc, { version: 0, value: '10' }))
+    )
     t.alike(expectedv1, c.decode(enc, c.encode(enc, { version: 1, value: 10 })))
     t.alike(expected, c.decode(enc, c.encode(enc, expected)))
   }
 })
 
-test('alias, enum, field versions should not sync with schema version if no change in definition', async t => {
+test('alias, enum, field versions should not sync with schema version if no change in definition', async (t) => {
   const schema = await createTestSchema(t)
 
   // write to file a schema version mismatched with enum and alias versions
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'test-alias',
@@ -549,10 +553,7 @@ test('alias, enum, field versions should not sync with schema version if no chan
     })
     ns.register({
       name: 'test-enum',
-      enum: [
-        'hello',
-        'world'
-      ]
+      enum: ['hello', 'world']
     })
     ns.register({
       name: 'test-struct',
@@ -573,7 +574,7 @@ test('alias, enum, field versions should not sync with schema version if no chan
 
   // load again from file
   // rebuild with no change in definition
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
     ns.register({
       name: 'test-alias',
@@ -581,10 +582,7 @@ test('alias, enum, field versions should not sync with schema version if no chan
     })
     ns.register({
       name: 'test-enum',
-      enum: [
-        'hello',
-        'world'
-      ]
+      enum: ['hello', 'world']
     })
     ns.register({
       name: 'test-struct',
@@ -611,10 +609,10 @@ test('alias, enum, field versions should not sync with schema version if no chan
   t.is(schema.json.schema[2].fields[1].version, 1) // no change in field2 version
 })
 
-test('basic json', async t => {
+test('basic json', async (t) => {
   const schema = await createTestSchema(t)
 
-  await schema.rebuild(schema => {
+  await schema.rebuild((schema) => {
     const ns = schema.namespace('test')
 
     ns.register({

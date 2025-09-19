@@ -1,17 +1,14 @@
 const fs = require('fs')
 const p = require('path')
 
-const {
-  SupportedTypes,
-  getDefaultValue
-} = require('./lib/types.js')
+const { SupportedTypes, getDefaultValue } = require('./lib/types.js')
 const generateCode = require('./lib/codegen')
 
 const JSON_FILE_NAME = 'schema.json'
 const CODE_FILE_NAME = 'index.js'
 
 class ResolvedType {
-  constructor (hyperschema, fqn, description, existing) {
+  constructor(hyperschema, fqn, description, existing) {
     this.hyperschema = hyperschema
     this.description = description
     this.name = description?.name || fqn
@@ -31,13 +28,13 @@ class ResolvedType {
     this.version = -1
   }
 
-  link () {}
+  link() {}
 
-  frameable () {
+  frameable() {
     return false
   }
 
-  toJSON () {
+  toJSON() {
     return {
       name: this.name,
       namespace: this.namespace
@@ -46,25 +43,30 @@ class ResolvedType {
 }
 
 class Primitive extends ResolvedType {
-  constructor (name) {
+  constructor(name) {
     super(null, name, name, null)
     this.isPrimitive = true
     this.bool = this.name === 'bool'
     this.default = getDefaultValue(this.name)
   }
 
-  static AllPrimitives = new Map([...SupportedTypes].map(name => {
-    return [name, new this(name)]
-  }))
+  static AllPrimitives = new Map(
+    [...SupportedTypes].map((name) => {
+      return [name, new this(name)]
+    })
+  )
 }
 
 class Alias extends ResolvedType {
-  constructor (hyperschema, fqn, description, existing) {
+  constructor(hyperschema, fqn, description, existing) {
     super(hyperschema, fqn, description, existing)
     this.isAlias = true
 
     this.type = hyperschema.resolve(description.alias)
-    if (!this.type) throw new Error(`Cannot resolve alias target ${description.alias} in ${description.name}`)
+    if (!this.type)
+      throw new Error(
+        `Cannot resolve alias target ${description.alias} in ${description.name}`
+      )
 
     this.default = this.type.default
 
@@ -75,15 +77,17 @@ class Alias extends ResolvedType {
       this.version = existing.version
     } else if (!this.derived) {
       this.hyperschema.maybeBumpVersion()
-      this.version = this.hyperschema.initializing ? this.description.version : this.hyperschema.version
+      this.version = this.hyperschema.initializing
+        ? this.description.version
+        : this.hyperschema.version
     }
   }
 
-  frameable () {
+  frameable() {
     return this.type.frameable()
   }
 
-  toJSON () {
+  toJSON() {
     return {
       name: this.name,
       namespace: this.namespace,
@@ -94,21 +98,23 @@ class Alias extends ResolvedType {
 }
 
 class ExternalType extends ResolvedType {
-  constructor (hyperschema, fqn, description, existing) {
+  constructor(hyperschema, fqn, description, existing) {
     super(hyperschema, fqn, description, existing)
 
     this.isExternal = true
     this.default = null
-    this.filename = hyperschema.namespaces.get(description.namespace)?.external || null
+    this.filename =
+      hyperschema.namespaces.get(description.namespace)?.external || null
     this.external = description.external
   }
 
-  require (filename) {
-    return p.relative(p.join(filename, '..'), p.resolve(this.filename))
+  require(filename) {
+    return p
+      .relative(p.join(filename, '..'), p.resolve(this.filename))
       .replaceAll('\\', '/')
   }
 
-  toJSON () {
+  toJSON() {
     return {
       name: this.description.name,
       namespace: this.namespace,
@@ -118,12 +124,13 @@ class ExternalType extends ResolvedType {
 }
 
 class Enum extends ResolvedType {
-  constructor (hyperschema, fqn, description, existing) {
+  constructor(hyperschema, fqn, description, existing) {
     super(hyperschema, fqn, description, existing)
 
     this.isEnum = true
     this.enum = []
-    this.offset = typeof description.offset === 'number' ? description.offset : 1
+    this.offset =
+      typeof description.offset === 'number' ? description.offset : 1
     this.default = description.strings ? null : 0
     this.strings = !!description.strings
 
@@ -143,7 +150,9 @@ class Enum extends ResolvedType {
       const prev = i < this.existing?.enum.length ? this.existing.enum[i] : null
 
       if (prev && prev.key !== key) {
-        throw new Error(`Enum ${i} in ${fqn} changed. Was "${prev.key}" but is now "${key}`)
+        throw new Error(
+          `Enum ${i} in ${fqn} changed. Was "${prev.key}" but is now "${key}`
+        )
       }
 
       if (!prev) {
@@ -152,12 +161,16 @@ class Enum extends ResolvedType {
 
       this.enum.push({
         key,
-        version: hyperschema.initializing ? d.version : (prev ? prev.version : hyperschema.version)
+        version: hyperschema.initializing
+          ? d.version
+          : prev
+            ? prev.version
+            : hyperschema.version
       })
     }
   }
 
-  toJSON () {
+  toJSON() {
     return {
       name: this.description.name,
       namespace: this.namespace,
@@ -168,7 +181,7 @@ class Enum extends ResolvedType {
 }
 
 class StructField {
-  constructor (hyperschema, struct, position, flag, description) {
+  constructor(hyperschema, struct, position, flag, description) {
     this.hyperschema = hyperschema
     this.description = description
     this.name = this.description.name
@@ -204,20 +217,24 @@ class StructField {
     }
   }
 
-  getDefaultValue () {
+  getDefaultValue() {
     return this.array ? null : this.type.default
   }
 
-  link () {
-    if (this.type === null) this.type = this.hyperschema.resolve(this.description.type) || null
-    if (this.type === null) throw new Error(`Cannot resolve field type ${this.description.type} in ${this.name}`)
+  link() {
+    if (this.type === null)
+      this.type = this.hyperschema.resolve(this.description.type) || null
+    if (this.type === null)
+      throw new Error(
+        `Cannot resolve field type ${this.description.type} in ${this.name}`
+      )
   }
 
-  get framed () {
+  get framed() {
     return this.type.frameable()
   }
 
-  toJSON () {
+  toJSON() {
     return {
       name: this.description.name,
       required: this.description.required,
@@ -229,24 +246,30 @@ class StructField {
 }
 
 class Array extends ResolvedType {
-  constructor (hyperschema, fqn, description, existing) {
+  constructor(hyperschema, fqn, description, existing) {
     super(hyperschema, fqn, description, existing)
     this.isArray = true
     this.default = null
 
     if (!description.type) {
-      throw new Error(`Array ${this.fqn}: required 'type' definition is missing`)
+      throw new Error(
+        `Array ${this.fqn}: required 'type' definition is missing`
+      )
     }
 
     this.type = hyperschema.resolve(description.type)
     this.framed = this.type.frameable()
 
     if (!description.name) {
-      throw new Error(`Array ${this.fqn}: required 'name' definition is missing`)
+      throw new Error(
+        `Array ${this.fqn}: required 'name' definition is missing`
+      )
     }
 
     if (!description.namespace) {
-      throw new Error(`Array ${this.fqn}: required 'namespace' definition is missing`)
+      throw new Error(
+        `Array ${this.fqn}: required 'namespace' definition is missing`
+      )
     }
 
     if (this.existing) {
@@ -256,7 +279,7 @@ class Array extends ResolvedType {
     }
   }
 
-  toJSON () {
+  toJSON() {
     return {
       name: this.name,
       namespace: this.namespace,
@@ -267,17 +290,20 @@ class Array extends ResolvedType {
 }
 
 class VersionedType extends ResolvedType {
-  constructor (hyperschema, fqn, description, existing) {
+  constructor(hyperschema, fqn, description, existing) {
     super(hyperschema, fqn, description, existing)
     this.isVersioned = true
     this.default = null
-    this.filename = hyperschema.namespaces.get(description.namespace)?.external || null
+    this.filename =
+      hyperschema.namespaces.get(description.namespace)?.external || null
 
     if (!description.versions) {
-      throw new Error(`VersionedType ${this.fqn}: required 'versions' definition is missing`)
+      throw new Error(
+        `VersionedType ${this.fqn}: required 'versions' definition is missing`
+      )
     }
 
-    this.versions = description.versions.map(v => {
+    this.versions = description.versions.map((v) => {
       return {
         type: hyperschema.resolve(v.type),
         version: v.version,
@@ -292,11 +318,15 @@ class VersionedType extends ResolvedType {
     this.framed = true
 
     if (!description.name) {
-      throw new Error(`VersionedType ${this.fqn}: required 'name' definition is missing`)
+      throw new Error(
+        `VersionedType ${this.fqn}: required 'name' definition is missing`
+      )
     }
 
     if (!description.namespace) {
-      throw new Error(`VersionedType ${this.fqn}: required 'namespace' definition is missing`)
+      throw new Error(
+        `VersionedType ${this.fqn}: required 'namespace' definition is missing`
+      )
     }
 
     if (this.existing) {
@@ -306,22 +336,27 @@ class VersionedType extends ResolvedType {
     }
   }
 
-  require (filename) {
-    return p.relative(p.join(filename, '..'), p.resolve(this.filename))
+  require(filename) {
+    return p
+      .relative(p.join(filename, '..'), p.resolve(this.filename))
       .replaceAll('\\', '/')
   }
 
-  toJSON () {
+  toJSON() {
     return {
       name: this.name,
       namespace: this.namespace,
-      versions: this.versions.map(version => ({ type: version.type.fqn, map: version.map, version: version.version }))
+      versions: this.versions.map((version) => ({
+        type: version.type.fqn,
+        map: version.map,
+        version: version.version
+      }))
     }
   }
 }
 
 class Struct extends ResolvedType {
-  constructor (hyperschema, fqn, description, existing) {
+  constructor(hyperschema, fqn, description, existing) {
     super(hyperschema, fqn, description, existing)
     this.isStruct = true
     this.default = null
@@ -341,11 +376,15 @@ class Struct extends ResolvedType {
     }
 
     if (!description.name) {
-      throw new Error(`Struct ${this.fqn}: required 'name' definition is missing`)
+      throw new Error(
+        `Struct ${this.fqn}: required 'name' definition is missing`
+      )
     }
 
     if (!description.fields) {
-      throw new Error(`Struct ${this.fqn}: required 'fields' definition is missing`)
+      throw new Error(
+        `Struct ${this.fqn}: required 'fields' definition is missing`
+      )
     }
 
     if (this.existing) {
@@ -353,12 +392,14 @@ class Struct extends ResolvedType {
       const newLength = this.description.fields.length
       if (oldLength > newLength) {
         throw new Error(`A field was removed: ${this.fqn}`)
-      } else if (this.compact && (oldLength !== newLength)) {
+      } else if (this.compact && oldLength !== newLength) {
         throw new Error(`A compact struct was expanded: ${this.fqn}`)
       }
     } else if (!this.derived) {
       this.hyperschema.maybeBumpVersion()
-      this.version = this.hyperschema.initializing ? this.description.version : this.hyperschema.version
+      this.version = this.hyperschema.initializing
+        ? this.description.version
+        : this.hyperschema.version
     }
 
     for (let i = 0; i < description.fields.length; i++) {
@@ -371,7 +412,13 @@ class Struct extends ResolvedType {
         fieldDescription.required = false
       }
       const flag = !fieldDescription.required ? 2 ** this.optionals.length : 0
-      const field = new StructField(hyperschema, this, i, flag, fieldDescription)
+      const field = new StructField(
+        hyperschema,
+        this,
+        i,
+        flag,
+        fieldDescription
+      )
 
       this.fields.push(field)
       this.fieldsByName.set(field.name, field)
@@ -385,37 +432,37 @@ class Struct extends ResolvedType {
     }
   }
 
-  link () {
+  link() {
     for (const f of this.fields) f.link()
   }
 
-  frameable () {
+  frameable() {
     return !this.compact
   }
 
-  toJSON () {
+  toJSON() {
     return {
       name: this.name,
       namespace: this.namespace,
       compact: this.compact,
       flagsPosition: this.flagsPosition,
-      fields: this.fields.map(f => f.toJSON())
+      fields: this.fields.map((f) => f.toJSON())
     }
   }
 }
 
 class HyperschemaNamespace {
-  constructor (hyperschema, name) {
+  constructor(hyperschema, name) {
     this.hyperschema = hyperschema
     this.name = name
     this.external = null
   }
 
-  require (filename) {
+  require(filename) {
     this.external = filename
   }
 
-  register (description) {
+  register(description) {
     return this.hyperschema.register({
       ...description,
       namespace: this.name
@@ -424,7 +471,7 @@ class HyperschemaNamespace {
 }
 
 module.exports = class Hyperschema {
-  constructor (json, { dir = null, versioned = true } = {}) {
+  constructor(json, { dir = null, versioned = true } = {}) {
     this.version = json ? json.version : versioned ? 0 : 1
     this.versioned = versioned
     this.schema = []
@@ -449,22 +496,22 @@ module.exports = class Hyperschema {
 
   static esm = false
 
-  _getFullyQualifiedName (description) {
+  _getFullyQualifiedName(description) {
     if (description.namespace === null) return description.name
     return '@' + description.namespace + '/' + description.name
   }
 
-  maybeBumpVersion () {
+  maybeBumpVersion() {
     if (this.changed || this.initializing) return
     this.changed = true
     if (this.versioned) this.version += 1
   }
 
-  linkAll () {
+  linkAll() {
     for (const t of this.types.values()) t.link()
   }
 
-  register (description) {
+  register(description) {
     const fqn = this._getFullyQualifiedName(description)
     const existing = this.types.get(fqn)
     const existingPosition = this.positionsByType.get(fqn)
@@ -497,34 +544,38 @@ module.exports = class Hyperschema {
     return type
   }
 
-  namespace (name) {
+  namespace(name) {
     if (this.namespaces.has(name)) throw new Error('Namespace already exists')
     const ns = new HyperschemaNamespace(this, name)
     this.namespaces.set(name, ns)
     return ns
   }
 
-  resolve (fqn, { aliases = true } = {}) {
-    if (Primitive.AllPrimitives.has(fqn)) return Primitive.AllPrimitives.get(fqn)
+  resolve(fqn, { aliases = true } = {}) {
+    if (Primitive.AllPrimitives.has(fqn))
+      return Primitive.AllPrimitives.get(fqn)
     const type = this.types.get(fqn)
     if (!aliases && type.isAlias) return type.type
     return type
   }
 
-  toJSON () {
+  toJSON() {
     this.linkAll()
 
-    const json = { version: this.version, schema: this.schema.filter(t => !t.derived) }
+    const json = {
+      version: this.version,
+      schema: this.schema.filter((t) => !t.derived)
+    }
     return json
   }
 
-  toCode ({ esm = this.constructor.esm, filename } = {}) {
+  toCode({ esm = this.constructor.esm, filename } = {}) {
     this.linkAll()
 
     return generateCode(this, { esm, filename })
   }
 
-  static toDisk (hyperschema, dir, opts) {
+  static toDisk(hyperschema, dir, opts) {
     if (typeof dir === 'object' && dir) {
       opts = dir
       dir = null
@@ -538,11 +589,19 @@ module.exports = class Hyperschema {
     const jsonPath = p.join(p.resolve(dir), JSON_FILE_NAME)
     const codePath = p.join(p.resolve(dir), CODE_FILE_NAME)
 
-    fs.writeFileSync(jsonPath, JSON.stringify(hyperschema.toJSON(), null, 2) + '\n', { encoding: 'utf-8' })
-    fs.writeFileSync(codePath, hyperschema.toCode({ ...opts, filename: codePath }), { encoding: 'utf-8' })
+    fs.writeFileSync(
+      jsonPath,
+      JSON.stringify(hyperschema.toJSON(), null, 2) + '\n',
+      { encoding: 'utf-8' }
+    )
+    fs.writeFileSync(
+      codePath,
+      hyperschema.toCode({ ...opts, filename: codePath }),
+      { encoding: 'utf-8' }
+    )
   }
 
-  static from (json, opts) {
+  static from(json, opts) {
     if (typeof json === 'string') {
       const jsonFilePath = p.join(p.resolve(json), JSON_FILE_NAME)
       let exists = false
@@ -552,7 +611,11 @@ module.exports = class Hyperschema {
       } catch (err) {
         if (err.code !== 'ENOENT') throw err
       }
-      if (exists) return new this(JSON.parse(fs.readFileSync(jsonFilePath)), { ...opts, dir: json })
+      if (exists)
+        return new this(JSON.parse(fs.readFileSync(jsonFilePath)), {
+          ...opts,
+          dir: json
+        })
       return new this(null, { ...opts, dir: json })
     }
     return new this(json, opts)
