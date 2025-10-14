@@ -478,6 +478,8 @@ test('basic enums (strings)', async (t) => {
     hello: 'hello',
     world: 'world'
   })
+
+  t.alike(schema.json.schema[0].strings, true)
 })
 
 test('versioned struct', async (t) => {

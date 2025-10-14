@@ -175,7 +175,8 @@ class Enum extends ResolvedType {
       name: this.description.name,
       namespace: this.namespace,
       offset: this.offset,
-      enum: this.enum
+      enum: this.enum,
+      strings: this.strings
     }
   }
 }
