@@ -27,7 +27,7 @@ test('basic struct, all required fields, version bump', async (t) => {
   {
     const enc = schema.module.resolveStruct('@test/test-struct')
     const expected = { field1: 10 }
-    t.alike(expected, c.decode(enc, c.encode(enc, expected)))
+    t.alike(c.decode(enc, c.encode(enc, expected)), expected)
   }
 
   await schema.rebuild((schema) => {
@@ -55,7 +55,7 @@ test('basic struct, all required fields, version bump', async (t) => {
   {
     const enc = schema.module.resolveStruct('@test/test-struct')
     const expected = { field1: 10, field2: 20 }
-    t.alike(expected, c.decode(enc, c.encode(enc, expected)))
+    t.alike(c.decode(enc, c.encode(enc, expected)), expected)
   }
 })
 
@@ -82,7 +82,7 @@ test('basic struct, all required fields, no version bump', async (t) => {
   {
     const enc = schema.module.resolveStruct('@test/test-struct')
     const expected = { field1: 10 }
-    t.alike(expected, c.decode(enc, c.encode(enc, expected)))
+    t.alike(c.decode(enc, c.encode(enc, expected)), expected)
   }
 
   await schema.rebuild((schema) => {
@@ -126,7 +126,7 @@ test('basic struct, one optional fields, version bump', async (t) => {
   {
     const enc = schema.module.resolveStruct('@test/test-struct')
     const expected = { field1: 10 }
-    t.alike(expected, c.decode(enc, c.encode(enc, expected)))
+    t.alike(c.decode(enc, c.encode(enc, expected)), expected)
   }
 
   await schema.rebuild((schema) => {
@@ -153,7 +153,7 @@ test('basic struct, one optional fields, version bump', async (t) => {
   {
     const enc = schema.module.resolveStruct('@test/test-struct')
     const expected = { field1: 10, field2: 0 }
-    t.alike(expected, c.decode(enc, c.encode(enc, { field1: 10 })))
+    t.alike(c.decode(enc, c.encode(enc, { field1: 10 })), expected)
   }
 })
 
@@ -184,7 +184,7 @@ test('basic struct, one optional fields, type alias, version bump', async (t) =>
   {
     const enc = schema.module.resolveStruct('@test/test-struct')
     const expected = { field1: 10 }
-    t.alike(expected, c.decode(enc, c.encode(enc, expected)))
+    t.alike(c.decode(enc, c.encode(enc, expected)), expected)
   }
 
   await schema.rebuild((schema) => {
@@ -211,7 +211,7 @@ test('basic struct, one optional fields, type alias, version bump', async (t) =>
   {
     const enc = schema.module.resolveStruct('@test/test-struct')
     const expected = { field1: 10, field2: 0 }
-    t.alike(expected, c.decode(enc, c.encode(enc, { field1: 10 })))
+    t.alike(c.decode(enc, c.encode(enc, { field1: 10 })), expected)
   }
 })
 
@@ -248,7 +248,7 @@ test('basic nested struct', async (t) => {
   {
     const enc = schema.module.resolveStruct('@test/test-struct')
     const expected = { field1: { field1: 10 } }
-    t.alike(expected, c.decode(enc, c.encode(enc, expected)))
+    t.alike(c.decode(enc, c.encode(enc, expected)), expected)
   }
 })
 
@@ -316,7 +316,7 @@ test('basic nested struct, version bump', async (t) => {
   {
     const enc = schema.module.resolveStruct('@test/test-struct')
     const expected = { field1: { field1: 10 } }
-    t.alike(expected, c.decode(enc, c.encode(enc, expected)))
+    t.alike(c.decode(enc, c.encode(enc, expected)), expected)
   }
 
   await schema.rebuild((schema) => {
@@ -352,7 +352,7 @@ test('basic nested struct, version bump', async (t) => {
   {
     const enc = schema.module.resolveStruct('@test/test-struct')
     const expected = { field1: { field1: 10, field2: 'hello world' } }
-    t.alike(expected, c.decode(enc, c.encode(enc, expected)))
+    t.alike(c.decode(enc, c.encode(enc, expected)), expected)
   }
 })
 
@@ -535,11 +535,11 @@ test('versioned struct', async (t) => {
     const expected = { version: 2, value: 10 }
 
     t.alike(
-      expectedv0,
-      c.decode(enc, c.encode(enc, { version: 0, value: '10' }))
+      c.decode(enc, c.encode(enc, { version: 0, value: '10' })),
+      expectedv0
     )
-    t.alike(expectedv1, c.decode(enc, c.encode(enc, { version: 1, value: 10 })))
-    t.alike(expected, c.decode(enc, c.encode(enc, expected)))
+    t.alike(c.decode(enc, c.encode(enc, { version: 1, value: 10 })), expectedv1)
+    t.alike(c.decode(enc, c.encode(enc, expected)), expected)
   }
 })
 
