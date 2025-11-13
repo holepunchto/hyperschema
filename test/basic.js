@@ -638,3 +638,34 @@ test('basic json', async (t) => {
     t.alike(dec, { foo: { here: 'is json' } })
   }
 })
+
+test('builder throws when an optional is defined before requireds in a struct', async t => {
+  const schema = await createTestSchema(t)
+
+  await t.exception(async () => {
+    await schema.rebuild(schema => {
+      const ns = schema.namespace('test')
+
+      ns.register({
+        name: 'invalid',
+        fields: [
+          {
+            name: 'foo',
+            type: 'string',
+            required: true
+          },
+          {
+            name: 'bar',
+            type: 'string',
+            required: false
+          },
+          {
+            name: 'boo',
+            type: 'string',
+            required: true
+          }
+        ]
+      })
+    })
+  }, /Cannot define a required field after an optional field/)
+})
