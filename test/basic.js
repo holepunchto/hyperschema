@@ -638,3 +638,56 @@ test('basic json', async (t) => {
     t.alike(dec, { foo: { here: 'is json' } })
   }
 })
+
+test('basic struct, fixed field', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: 'string',
+          fixedSize: 2,
+          required: true
+        }
+      ]
+    })
+  })
+
+  t.is(schema.json.version, 1)
+  t.is(schema.module.version, 1)
+
+  // Is forced to be shorter
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const expected = { field1: 'ab' }
+    t.alike(expected, c.decode(enc, c.encode(enc, { field1: 'abc' })))
+  }
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const expected = { field1: 'ab' }
+    t.alike(expected, c.decode(enc, c.encode(enc, expected)))
+  }
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: 'string',
+          fixedSize: 2,
+          required: true
+        }
+      ]
+    })
+  })
+
+  t.is(schema.json.version, 1)
+  t.is(schema.module.version, 1)
+})

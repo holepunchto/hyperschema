@@ -16,6 +16,7 @@ class ResolvedType {
     this.derived = description.derived
     this.existing = existing
     this.fqn = fqn
+    this.fixedSize = description?.fixedSize || undefined
 
     this.isPrimitive = false
     this.isEnum = false
@@ -37,7 +38,8 @@ class ResolvedType {
   toJSON() {
     return {
       name: this.name,
-      namespace: this.namespace
+      namespace: this.namespace,
+      fixedSize: this.fixedSize
     }
   }
 }
@@ -188,6 +190,7 @@ class StructField {
     this.name = this.description.name
     this.required = this.description.required
     this.external = this.description.external
+    this.fixedSize = this.description.fixedSize
 
     this.position = position
     this.struct = struct
