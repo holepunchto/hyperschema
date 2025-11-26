@@ -6,6 +6,7 @@ const generateCode = require('./lib/generate-code')
 const generateTypes = require('./lib/generate-types')
 const JSON_FILE_NAME = 'schema.json'
 const CODE_FILE_NAME = 'index.js'
+const TYPE_FILE_NAME = 'index.d.ts'
 
 class ResolvedType {
   constructor(hyperschema, fqn, description, existing) {
@@ -591,7 +592,7 @@ module.exports = class Hyperschema {
 
     const jsonPath = p.join(p.resolve(dir), JSON_FILE_NAME)
     const codePath = p.join(p.resolve(dir), CODE_FILE_NAME)
-    const dtsPath = p.join(p.resolve(dir), 'index.d.ts')
+    const dtsPath = p.join(p.resolve(dir), TYPE_FILE_NAME)
 
     const { code, dts } = hyperschema.toCode({ ...opts, filename: codePath })
 
