@@ -470,8 +470,18 @@ test('basic enums (strings)', async (t) => {
     const enc = schema.module.resolveStruct('@test/test-struct')
     const buf = c.encode(enc, { foo: world })
     const dec = c.decode(enc, buf)
-
     t.alike(dec, { foo: world })
+  }
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    try {
+      c.encode(enc, { foo: 'invalid' })
+    } catch (error) {
+      t.ok(error.message.includes('Unknown enum'))
+      t.ok(error.message.includes('"invalid"'))
+      t.ok(error.message.includes('@test/test-enum'))
+    }
   }
 
   t.alike(schema.module.getEnum('@test/test-enum'), {
