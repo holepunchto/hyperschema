@@ -220,7 +220,7 @@ class StructField {
   }
 
   getDefaultValue() {
-    return this.array ? null : this.type.default
+    return !this.useDefault ? undefined : this.array ? null : this.type.default
   }
 
   link() {
