@@ -680,6 +680,6 @@ test('basic default', async (t) => {
     const buf = c.encode(enc, { foo: 1, far: Buffer.alloc(3, 3) })
     const dec = c.decode(enc, buf)
 
-    t.alike(dec, { foo: 1, bar: null, far: Buffer.alloc(3, 3) })
+    t.alike(dec, { foo: 1, bar: null, baz: undefined, far: Buffer.alloc(3, 3) })
   }
 })
