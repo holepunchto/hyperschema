@@ -188,6 +188,7 @@ class StructField {
     this.name = this.description.name
     this.required = this.description.required
     this.external = this.description.external
+    this.useDefault = this.description.useDefault !== false
 
     this.position = position
     this.struct = struct
