@@ -118,6 +118,9 @@ All struct definitions must take the following form:
 
 - `name`: (required) The name of the field. This should be camel-case.
 - `type`: (required) Either a built-in type (i.e. `uint`) or a fully-qualified user-defined type (i.e. `@namespace/another-struct`)
+- `required`: (optional - default `false`) Is the field required
+- `array`: (optional - default `false`) Is the field an array of values
+- `useDefault`: (optional - default `true`) If there is no value, use a default for the type
 
 #### Alias Definition
 
