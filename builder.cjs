@@ -188,6 +188,7 @@ class StructField {
     this.name = this.description.name
     this.required = this.description.required
     this.external = this.description.external
+    this.useDefault = this.description.useDefault !== false
 
     this.position = position
     this.struct = struct
@@ -219,7 +220,7 @@ class StructField {
   }
 
   getDefaultValue() {
-    return this.array ? null : this.type.default
+    return !this.useDefault ? undefined : this.array ? null : this.type.default
   }
 
   link() {

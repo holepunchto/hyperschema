@@ -638,3 +638,48 @@ test('basic json', async (t) => {
     t.alike(dec, { foo: { here: 'is json' } })
   }
 })
+
+test('basic default', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'test-default',
+      compact: true,
+      fields: [
+        {
+          name: 'foo',
+          type: 'uint'
+        },
+        {
+          name: 'bar',
+          type: 'buffer',
+          required: false,
+          useDefault: true
+        },
+        {
+          name: 'baz',
+          type: 'buffer',
+          required: false,
+          useDefault: false
+        },
+        {
+          name: 'far',
+          type: 'buffer',
+          required: false,
+          useDefault: false
+        }
+      ]
+    })
+  })
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-default')
+    const buf = c.encode(enc, { foo: 1, far: Buffer.alloc(3, 3) })
+    const dec = c.decode(enc, buf)
+
+    t.alike(dec, { foo: 1, bar: null, baz: undefined, far: Buffer.alloc(3, 3) })
+  }
+})
