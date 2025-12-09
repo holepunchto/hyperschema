@@ -664,6 +664,12 @@ test('basic default', async (t) => {
           type: 'buffer',
           required: false,
           useDefault: false
+        },
+        {
+          name: 'far',
+          type: 'buffer',
+          required: false,
+          useDefault: false
         }
       ]
     })
@@ -671,9 +677,9 @@ test('basic default', async (t) => {
 
   {
     const enc = schema.module.resolveStruct('@test/test-default')
-    const buf = c.encode(enc, { foo: 1 })
+    const buf = c.encode(enc, { foo: 1, far: Buffer.alloc(3, 3) })
     const dec = c.decode(enc, buf)
 
-    t.alike(dec, { foo: 1, bar: null })
+    t.alike(dec, { foo: 1, bar: null, far: Buffer.alloc(3, 3) })
   }
 })
