@@ -2,10 +2,11 @@ const fs = require('fs')
 const p = require('path')
 
 const { SupportedTypes, getDefaultValue } = require('./lib/types.js')
-const generateCode = require('./lib/codegen')
-
+const generateCode = require('./lib/generate-code')
+const generateTypes = require('./lib/generate-types')
 const JSON_FILE_NAME = 'schema.json'
 const CODE_FILE_NAME = 'index.js'
+const TYPE_FILE_NAME = 'index.d.ts'
 
 class ResolvedType {
   constructor(hyperschema, fqn, description, existing) {
@@ -574,7 +575,10 @@ module.exports = class Hyperschema {
   toCode({ esm = this.constructor.esm, filename } = {}) {
     this.linkAll()
 
-    return generateCode(this, { esm, filename })
+    const code = generateCode(this, { esm, filename })
+    const dts = generateTypes(this, { filename })
+
+    return { code, dts }
   }
 
   static toDisk(hyperschema, dir, opts) {
@@ -584,23 +588,22 @@ module.exports = class Hyperschema {
     }
 
     hyperschema.linkAll()
-
     if (!dir) dir = hyperschema.dir
     fs.mkdirSync(dir, { recursive: true })
 
     const jsonPath = p.join(p.resolve(dir), JSON_FILE_NAME)
     const codePath = p.join(p.resolve(dir), CODE_FILE_NAME)
+    const dtsPath = p.join(p.resolve(dir), TYPE_FILE_NAME)
+
+    const { code, dts } = hyperschema.toCode({ ...opts, filename: codePath })
 
     fs.writeFileSync(
       jsonPath,
       JSON.stringify(hyperschema.toJSON(), null, 2) + '\n',
       { encoding: 'utf-8' }
     )
-    fs.writeFileSync(
-      codePath,
-      hyperschema.toCode({ ...opts, filename: codePath }),
-      { encoding: 'utf-8' }
-    )
+    fs.writeFileSync(codePath, code, { encoding: 'utf-8' })
+    fs.writeFileSync(dtsPath, dts, { encoding: 'utf-8' })
   }
 
   static from(json, opts) {
