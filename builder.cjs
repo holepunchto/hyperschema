@@ -188,6 +188,7 @@ class StructField {
     this.name = this.description.name
     this.required = this.description.required
     this.external = this.description.external
+    this.inline = this.description.inline
     this.useDefault = this.description.useDefault !== false
 
     this.position = position
@@ -241,6 +242,7 @@ class StructField {
       name: this.description.name,
       required: this.description.required,
       array: this.description.array,
+      inline: this.description.inline,
       type: this.typeFqn,
       version: this.version
     }
