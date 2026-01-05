@@ -39,10 +39,7 @@ async function makeDir(t) {
   // Copy the runtime into the tmp dir so that we don't need to override it in the codegen
   const runtimePath = p.join(dir, 'node_modules', 'hyperschema', 'runtime.cjs')
   await fs.promises.mkdir(p.dirname(runtimePath), { recursive: true })
-  await fs.promises.copyFile(
-    p.resolve(dir, '../../../runtime.cjs'),
-    runtimePath
-  )
+  await fs.promises.copyFile(p.resolve(dir, '../../../runtime.cjs'), runtimePath)
   return dir
 }
 
