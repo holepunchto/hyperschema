@@ -1,7 +1,13 @@
 const fs = require('fs')
 const p = require('path')
 
-const { SupportedTypes, getDefaultValue } = require('./lib/types.js')
+const {
+  SupportedTypes,
+  BitwiseNumericTypes,
+  getBitwiseSize,
+  getDefaultValue
+} = require('./lib/types.js')
+
 const generateCode = require('./lib/codegen')
 
 const JSON_FILE_NAME = 'schema.json'
@@ -49,6 +55,7 @@ class Primitive extends ResolvedType {
     super(null, name, name, null)
     this.isPrimitive = true
     this.bool = this.name === 'bool'
+    this.bitwise = getBitwiseSize(this.name)
     this.default = getDefaultValue(this.name)
   }
 
@@ -387,11 +394,13 @@ class Struct extends ResolvedType {
         if (!this.compact) throw new Error(`Struct ${this.fqn}: inline requires compact`)
       }
 
-      // bools can only be set in the flag, so auto downgrade the from required
+      // bools or bitwise uints can only be set in the flag, so auto downgrade the from required
       // TODO: if we add semantic meaning to required, ie "user MUST set this", we should
       // add an additional state for this
-      if (fieldDescription.required && fieldDescription.type === 'bool') {
-        fieldDescription.required = false
+      if (fieldDescription.required) {
+        if (fieldDescription.type === 'bool' || BitwiseNumericTypes.has(fieldDescription.type)) {
+          fieldDescription.required = false
+        }
       }
       const flag = !fieldDescription.required ? (this.maxFlag === 0 ? 1 : this.maxFlag * 2) : 0
       const field = new StructField(hyperschema, this, i, flag, fieldDescription)
@@ -410,8 +419,9 @@ class Struct extends ResolvedType {
   }
 
   _resolveField(field, flag, shift) {
+    const bitwise = getBitwiseSize(field.type.fqn)
     const entry = {
-      bits: 0,
+      bits: bitwise ? bitwise - 1 : 0, // -1 cause its optional always
       field,
       flag,
       shift,
@@ -422,7 +432,7 @@ class Struct extends ResolvedType {
       return entry
     }
 
-    const bits = 0
+    const bits = entry.bits
     for (const f of field.type.fields) {
       if (!f.required) {
         entry.bits++
