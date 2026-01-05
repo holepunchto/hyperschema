@@ -411,9 +411,9 @@ class Struct extends ResolvedType {
       if (!fieldDescription.required) {
         this.optionals.push(field)
         this.maxFlag = flag
-        if (this.flagsPosition === -1) {
-          this.flagsPosition = i
-        }
+      }
+      if (this.flagsPosition === -1 && (!fieldDescription.required || fieldDescription.inline)) {
+        this.flagsPosition = i
       }
     }
   }
@@ -436,7 +436,7 @@ class Struct extends ResolvedType {
     for (const f of field.type.fields) {
       if (!f.required) {
         entry.bits++
-        flag *= 2
+        flag = nextFlag(flag, 1)
       }
 
       const next = this._resolveField(f, flag, entry.bits - bits)
@@ -444,19 +444,10 @@ class Struct extends ResolvedType {
       entry.bits += next.bits
       entry.fields.push(next)
 
-      flag *= 2 ** next.bits
+      flag = nextFlag(flag, next.bits)
     }
 
     return entry
-  }
-
-  _resolveFields() {
-    let bits = 0
-    for (const f of this.fields) {
-      const next = this._resolveField(f, 2 ** bits, bits + 1)
-      bits += f.required ? next.bits : next.bits + 1
-      this.resolvedFields.push(next)
-    }
   }
 
   link() {
@@ -469,13 +460,20 @@ class Struct extends ResolvedType {
 
     let bits = 0
     let maxIncrease = 1
+    let flag = 0
 
     for (const f of this.fields) {
       f.flag *= maxIncrease
       if (f.inline && f.type.isStruct) f.type.isInlined = true
 
-      const next = this._resolveField(f, 2 ** bits, bits + 1)
-      bits += f.required ? next.bits : next.bits + 1
+      const b = f.required ? bits : bits + 1
+      if (!f.required) {
+        flag = nextFlag(flag, 1)
+        bits++
+      }
+      const next = this._resolveField(f, flag, bits)
+      bits += next.bits
+      flag = nextFlag(flag, next.bits)
       this.resolvedFields.push(next)
 
       if (next.bits) maxIncrease *= 2 ** next.bits
@@ -665,4 +663,13 @@ module.exports = class Hyperschema {
     }
     return new this(json, opts)
   }
+}
+
+function nextFlag(f, n) {
+  if (n === 0) return f
+  if (f === 0) {
+    f = 1
+    n--
+  }
+  return f * 2 ** n
 }
