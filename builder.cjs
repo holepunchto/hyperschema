@@ -343,12 +343,12 @@ class Struct extends ResolvedType {
 
     this.fields = []
     this.fieldsByName = new Map()
+    this.resolvedFields = []
 
     this.optionals = []
     this.maxFlag = 0
     this.flagsPosition = -1
 
-    this.inlining = false
     this.linked = false
 
     this.compact = !!description.compact
@@ -384,7 +384,6 @@ class Struct extends ResolvedType {
       const fieldDescription = description.fields[i]
 
       if (fieldDescription.inline) {
-        this.inlining = true
         if (!this.compact) throw new Error(`Struct ${this.fqn}: inline requires compact`)
       }
 
@@ -410,7 +409,7 @@ class Struct extends ResolvedType {
     }
   }
 
-  _getInlinedFields(field, flag, shift) {
+  _resolveField(field, flag, shift) {
     const entry = {
       bits: 0,
       field,
@@ -430,7 +429,7 @@ class Struct extends ResolvedType {
         flag *= 2
       }
 
-      const next = this._getInlinedFields(f, flag, entry.bits - bits)
+      const next = this._resolveField(f, flag, entry.bits - bits)
 
       entry.bits += next.bits
       entry.fields.push(next)
@@ -441,17 +440,13 @@ class Struct extends ResolvedType {
     return entry
   }
 
-  getFields() {
-    const result = []
-
+  _resolveFields() {
     let bits = 0
     for (const f of this.fields) {
-      const next = this._getInlinedFields(f, 2 ** bits, bits + 1)
+      const next = this._resolveField(f, 2 ** bits, bits + 1)
       bits += f.required ? next.bits : next.bits + 1
-      result.push(next)
+      this.resolvedFields.push(next)
     }
-
-    return result
   }
 
   link() {
@@ -461,22 +456,23 @@ class Struct extends ResolvedType {
   postlink() {
     if (this.linked) return
     this.linked = true
-    if (!this.inlining) return
 
+    let bits = 0
     let maxIncrease = 1
 
     for (const f of this.fields) {
       f.flag *= maxIncrease
+
       if (f.inline) {
         if (f.type.isStruct) f.type.isInlined = true
         this.hyperschema.inlinedTypes.add(f.type.fqn)
       }
 
-      const entry = this._getInlinedFields(f, 0, 0)
+      const next = this._resolveField(f, 2 ** bits, bits + 1)
+      bits += f.required ? next.bits : next.bits + 1
+      this.resolvedFields.push(next)
 
-      if (entry.bits) {
-        maxIncrease *= 2 ** entry.bits
-      }
+      if (next.bits) maxIncrease *= 2 ** next.bits
     }
 
     this.maxFlag *= maxIncrease
