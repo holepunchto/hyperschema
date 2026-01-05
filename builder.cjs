@@ -472,11 +472,7 @@ class Struct extends ResolvedType {
 
     for (const f of this.fields) {
       f.flag *= maxIncrease
-
-      if (f.inline) {
-        if (f.type.isStruct) f.type.isInlined = true
-        this.hyperschema.inlinedTypes.add(f.type.fqn)
-      }
+      if (f.inline && f.type.isStruct) f.type.isInlined = true
 
       const next = this._resolveField(f, 2 ** bits, bits + 1)
       bits += f.required ? next.bits : next.bits + 1
@@ -533,7 +529,6 @@ module.exports = class Hyperschema {
     this.positionsByType = new Map()
     this.typesByPosition = new Map()
     this.types = new Map()
-    this.inlinedTypes = new Set()
 
     this.changed = false
     this.initializing = true
