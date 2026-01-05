@@ -30,6 +30,8 @@ class ResolvedType {
 
   link() {}
 
+  postlink() {}
+
   frameable() {
     return false
   }
@@ -214,8 +216,9 @@ class StructField {
 
   link() {
     if (this.type === null) this.type = this.hyperschema.resolve(this.description.type) || null
-    if (this.type === null)
+    if (this.type === null) {
       throw new Error(`Cannot resolve field type ${this.description.type} in ${this.name}`)
+    }
   }
 
   get framed() {
@@ -333,6 +336,8 @@ class Struct extends ResolvedType {
   constructor(hyperschema, fqn, description, existing) {
     super(hyperschema, fqn, description, existing)
     this.isStruct = true
+    this.isInlined = false
+
     this.default = null
     this.expectsVersion = false
 
@@ -340,8 +345,11 @@ class Struct extends ResolvedType {
     this.fieldsByName = new Map()
 
     this.optionals = []
+    this.maxFlag = 0
     this.flagsPosition = -1
-    this.linked = 0
+
+    this.inlining = false
+    this.linked = false
 
     this.compact = !!description.compact
 
@@ -375,13 +383,18 @@ class Struct extends ResolvedType {
     for (let i = 0; i < description.fields.length; i++) {
       const fieldDescription = description.fields[i]
 
+      if (fieldDescription.inline) {
+        this.inlining = true
+        if (!this.compact) throw new Error(`Struct ${this.fqn}: inline requires compact`)
+      }
+
       // bools can only be set in the flag, so auto downgrade the from required
       // TODO: if we add semantic meaning to required, ie "user MUST set this", we should
       // add an additional state for this
       if (fieldDescription.required && fieldDescription.type === 'bool') {
         fieldDescription.required = false
       }
-      const flag = !fieldDescription.required ? 2 ** this.optionals.length : 0
+      const flag = !fieldDescription.required ? (this.maxFlag === 0 ? 1 : this.maxFlag * 2) : 0
       const field = new StructField(hyperschema, this, i, flag, fieldDescription)
 
       this.fields.push(field)
@@ -389,6 +402,7 @@ class Struct extends ResolvedType {
 
       if (!fieldDescription.required) {
         this.optionals.push(field)
+        this.maxFlag = flag
         if (this.flagsPosition === -1) {
           this.flagsPosition = i
         }
@@ -396,8 +410,76 @@ class Struct extends ResolvedType {
     }
   }
 
+  _getInlinedFields(field, flag, shift) {
+    const entry = {
+      bits: 0,
+      field,
+      flag,
+      shift,
+      fields: []
+    }
+
+    if (!field.type.isStruct || !field.inline) {
+      return entry
+    }
+
+    const bits = 0
+    for (const f of field.type.fields) {
+      if (!f.required) {
+        entry.bits++
+        flag *= 2
+      }
+
+      const next = this._getInlinedFields(f, flag, entry.bits - bits)
+
+      entry.bits += next.bits
+      entry.fields.push(next)
+
+      flag *= 2 ** next.bits
+    }
+
+    return entry
+  }
+
+  getFields() {
+    const result = []
+
+    let bits = 0
+    for (const f of this.fields) {
+      const next = this._getInlinedFields(f, 2 ** bits, bits + 1)
+      bits += f.required ? next.bits : next.bits + 1
+      result.push(next)
+    }
+
+    return result
+  }
+
   link() {
     for (const f of this.fields) f.link()
+  }
+
+  postlink() {
+    if (this.linked) return
+    this.linked = true
+    if (!this.inlining) return
+
+    let maxIncrease = 1
+
+    for (const f of this.fields) {
+      f.flag *= maxIncrease
+      if (f.inline) {
+        if (f.type.isStruct) f.type.isInlined = true
+        this.hyperschema.inlinedTypes.add(f.type.fqn)
+      }
+
+      const entry = this._getInlinedFields(f, 0, 0)
+
+      if (entry.bits) {
+        maxIncrease *= 2 ** entry.bits
+      }
+    }
+
+    this.maxFlag *= maxIncrease
   }
 
   frameable() {
@@ -445,9 +527,11 @@ module.exports = class Hyperschema {
     this.positionsByType = new Map()
     this.typesByPosition = new Map()
     this.types = new Map()
+    this.inlinedTypes = new Set()
 
     this.changed = false
     this.initializing = true
+
     if (json) {
       for (let i = 0; i < json.schema.length; i++) {
         const description = json.schema[i]
@@ -473,6 +557,7 @@ module.exports = class Hyperschema {
 
   linkAll() {
     for (const t of this.types.values()) t.link()
+    for (const t of this.types.values()) t.postlink()
   }
 
   register(description) {
