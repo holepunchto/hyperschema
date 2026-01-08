@@ -252,6 +252,39 @@ test('basic nested struct', async (t) => {
   }
 })
 
+test('error if inlined struct isnt compact', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await t.exception(
+    () =>
+      schema.rebuild((schema) => {
+        const ns = schema.namespace('test')
+        ns.register({
+          name: 'interior-struct',
+          fields: [
+            {
+              name: 'field1',
+              type: 'uint'
+            }
+          ]
+        })
+        ns.register({
+          name: 'test-struct',
+          // Compact is not required to throw the error but would cause error not to throw in previous bugged versions
+          compact: true,
+          fields: [
+            {
+              name: 'field1',
+              type: '@test/interior-struct',
+              inline: true
+            }
+          ]
+        })
+      }),
+    /Struct .*: inline requires compact/
+  )
+})
+
 test('basic required field missing', async (t) => {
   const schema = await createTestSchema(t)
 
