@@ -113,7 +113,6 @@ All struct definitions must take the following form:
 - `fields`: (required) (defined below)
 - `compact`: (optional) If true, this struct cannot be extended in the future (if embedded in another struct, will not frame the encoding)
 - `flagsPosition`: (optional) The position that the flags for optional fields should be encoded at (default to before first optional field)
-- `inline`: (optional) Whether to recursively inline the fields using the flags bitfield for skipping non-required fields. This can make the encoded size smaller. Must be set as `compact` to be inlined.
 
 #### Struct Field Definitions
 
@@ -122,6 +121,7 @@ All struct definitions must take the following form:
 - `required`: (optional - default `false`) Is the field required
 - `array`: (optional - default `false`) Is the field an array of values
 - `useDefault`: (optional - default `true`) If there is no value, use a default for the type
+- `inline`: (optional) Whether to recursively inline the field using the parent struct's flags bitfield for skipping non-required fields. This can make the encoded size smaller. A field's type must be set as `compact` to be inlined.
 
 #### Alias Definition
 
