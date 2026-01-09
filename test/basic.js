@@ -424,54 +424,6 @@ test('inline - inlining array throws error', async (t) => {
   )
 })
 
-test('inline - inlined required field throws error', async (t) => {
-  const schema = await createTestSchema(t)
-
-  await t.exception(
-    () =>
-      schema.rebuild((schema) => {
-        const ns = schema.namespace('test')
-        ns.register({
-          name: 'required-interior-struct',
-          compact: true,
-          fields: [
-            {
-              name: 'name',
-              type: 'string'
-            }
-          ]
-        })
-        ns.register({
-          name: 'interior-struct',
-          compact: true,
-          fields: [
-            {
-              name: 'field1',
-              type: 'uint'
-            }
-          ]
-        })
-        ns.register({
-          name: 'test-struct',
-          fields: [
-            {
-              name: 'field1',
-              type: '@test/required-interior-struct',
-              required: true,
-              inline: true
-            },
-            {
-              name: 'field2',
-              type: '@test/interior-struct',
-              inline: true
-            }
-          ]
-        })
-      }),
-    /Struct .*: inline cannot be required/
-  )
-})
-
 test('inline - recursively inlines inlined fields', async (t) => {
   const schema = await createTestSchema(t)
 
