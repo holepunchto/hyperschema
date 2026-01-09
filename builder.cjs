@@ -405,7 +405,7 @@ class Struct extends ResolvedType {
         if (!field.type.compact) throw new Error(`Struct ${this.fqn}: inline requires compact`)
         if (fieldDescription.required)
           throw new Error(`Struct ${this.fqn}: inline cannot be required`)
-        if (fieldDescription.inline) {
+        if (fieldDescription.array) {
           throw new Error(`Struct ${this.fqn}: Arrays cannot be inlined`)
         }
       }
