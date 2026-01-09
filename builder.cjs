@@ -387,6 +387,7 @@ class Struct extends ResolvedType {
         : this.hyperschema.version
     }
 
+    let indexBeforeOptional = -1
     for (let i = 0; i < description.fields.length; i++) {
       const fieldDescription = description.fields[i]
 
@@ -412,9 +413,18 @@ class Struct extends ResolvedType {
         this.optionals.push(field)
         this.maxFlag = flag
       }
-      if (this.flagsPosition === -1 && (!fieldDescription.required || fieldDescription.inline)) {
-        this.flagsPosition = i
+      if (indexBeforeOptional === -1 && (!fieldDescription.required || fieldDescription.inline)) {
+        indexBeforeOptional = i
+        if (this.flagsPosition === -1) {
+          this.flagsPosition = i
+        }
       }
+    }
+
+    if (this.flagsPosition > indexBeforeOptional) {
+      throw new Error(
+        `Struct ${this.fqn}: flagsPosition (${this.flagsPosition}) must be before optional fields (max ${indexBeforeOptional})`
+      )
     }
   }
 

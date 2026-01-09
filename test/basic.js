@@ -304,6 +304,37 @@ test('flagsPosition', async (t) => {
   }
 })
 
+test('flagsPosition - throws when invalid position', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await t.exception(
+    () =>
+      schema.rebuild((schema) => {
+        const ns = schema.namespace('test')
+        ns.register({
+          name: 'test-struct',
+          flagsPosition: 2,
+          fields: [
+            {
+              name: 'field1',
+              type: 'uint',
+              required: true
+            },
+            {
+              name: 'field2',
+              type: 'uint'
+            },
+            {
+              name: 'field3',
+              type: 'uint'
+            }
+          ]
+        })
+      }),
+    /Struct .*: flagsPosition \(2\) must be before optional fields \(max 1\)/
+  )
+})
+
 test('basic required field missing', async (t) => {
   const schema = await createTestSchema(t)
 
