@@ -329,6 +329,68 @@ test('inline - (en/de)codes', async (t) => {
   }
 })
 
+test('inline - flagsPosition', async (t) => {
+  const schema = await createTestSchema(t)
+
+  const flagsPosition = 1
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'interior-struct',
+      compact: true,
+      flagsPosition,
+      fields: [
+        {
+          name: 'field1',
+          type: 'uint',
+          required: true
+        },
+        {
+          name: 'field2',
+          type: 'uint',
+          required: true
+        },
+        {
+          name: 'field3',
+          type: 'uint'
+        }
+      ]
+    })
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: '@test/interior-struct',
+          inline: true
+        }
+      ]
+    })
+  })
+
+  t.is(schema.json.version, 1)
+  t.is(schema.module.version, 1)
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const initial = { field1: { field1: 10, field2: 42 } }
+    const expected = { field1: { field1: 10, field2: 42, field3: 0 } }
+    const encoded = c.encode(enc, initial)
+    t.alike(c.decode(enc, encoded), expected)
+
+    const encInnerAlone = schema.module.resolveStruct('@test/interior-struct')
+    const encodedInnerAlone = c.encode(encInnerAlone, expected.field1)
+    t.absent(encoded.includes(encodedInnerAlone), "outer struct doesn't include inner struct flags")
+
+    // Inlined version will skip 2nd byte where it normally encodes flags
+    const encodedInnerWOFlags = Buffer.alloc(encodedInnerAlone.byteLength - 1)
+    encodedInnerAlone.copy(encodedInnerWOFlags, 0, 0, flagsPosition) // Copy required fields before flags
+    encodedInnerAlone.copy(encodedInnerWOFlags, flagsPosition, flagsPosition + 1) // Copy everything after the flags
+
+    t.ok(encoded.includes(encodedInnerWOFlags), 'outer struct inlines inner w/o flags')
+  }
+})
+
 test('inline - inlining array throws error', async (t) => {
   const schema = await createTestSchema(t)
 
