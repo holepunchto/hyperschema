@@ -285,6 +285,50 @@ test('error if inlined struct isnt compact', async (t) => {
   )
 })
 
+test('inline - (en/de)codes', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'interior-struct',
+      compact: true,
+      fields: [
+        {
+          name: 'field1',
+          type: 'uint'
+        }
+      ]
+    })
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: '@test/interior-struct',
+          inline: true
+        }
+      ]
+    })
+  })
+
+  t.is(schema.json.version, 1)
+  t.is(schema.module.version, 1)
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const expected = { field1: { field1: 10 } }
+    const encoded = c.encode(enc, expected)
+    t.alike(expected, c.decode(enc, encoded))
+
+    const encInnerAlone = schema.module.resolveStruct('@test/interior-struct')
+    const encodedInnerAlone = c.encode(encInnerAlone, expected.field1)
+    t.absent(encoded.includes(encodedInnerAlone), "outer struct doesn't include inner struct flags")
+    const encodedInnerWOFlags = encodedInnerAlone.slice(1)
+    t.ok(encoded.includes(encodedInnerWOFlags), 'outer struct inlines inner w/o flags')
+  }
+})
+
 test('basic required field missing', async (t) => {
   const schema = await createTestSchema(t)
 
