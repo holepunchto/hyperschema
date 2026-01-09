@@ -329,6 +329,39 @@ test('inline - (en/de)codes', async (t) => {
   }
 })
 
+test('inline - inlining array throws error', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await t.exception(
+    () =>
+      schema.rebuild((schema) => {
+        const ns = schema.namespace('test')
+        ns.register({
+          name: 'interior-struct',
+          compact: true,
+          fields: [
+            {
+              name: 'field1',
+              type: 'uint'
+            }
+          ]
+        })
+        ns.register({
+          name: 'test-struct',
+          fields: [
+            {
+              name: 'field1',
+              type: '@test/interior-struct',
+              array: true,
+              inline: true
+            }
+          ]
+        })
+      }),
+    /Struct .*: Arrays cannot be inlined/
+  )
+})
+
 test('inline - inlined required field throws error', async (t) => {
   const schema = await createTestSchema(t)
 
