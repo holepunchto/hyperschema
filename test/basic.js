@@ -329,6 +329,72 @@ test('inline - (en/de)codes', async (t) => {
   }
 })
 
+test('inline - recursively inlines inlined fields', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'layer2',
+      compact: true,
+      fields: [
+        {
+          name: 'foo',
+          type: 'uint'
+        }
+      ]
+    })
+    ns.register({
+      name: 'layer1',
+      compact: true,
+      fields: [
+        {
+          name: 'bar',
+          type: '@test/layer2',
+          inline: true
+        }
+      ]
+    })
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'baz',
+          type: '@test/layer1',
+          inline: true
+        }
+      ]
+    })
+  })
+
+  t.is(schema.json.version, 1)
+  t.is(schema.module.version, 1)
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const expected = { baz: { bar: { foo: 42 } } }
+    const encoded = c.encode(enc, expected)
+    t.alike(expected, c.decode(enc, encoded))
+
+    // Inline Layer 1
+    const encInnerAlone = schema.module.resolveStruct('@test/layer1')
+    const encodedInnerAlone = c.encode(encInnerAlone, expected.baz)
+    t.absent(encoded.includes(encodedInnerAlone), "outer struct doesn't include inner struct flags")
+    const encodedInnerWOFlags = encodedInnerAlone.slice(1)
+    t.ok(encoded.includes(encodedInnerWOFlags), 'outer struct inlines inner w/o flags')
+
+    // Inline layer 2
+    const encInner2Alone = schema.module.resolveStruct('@test/layer2')
+    const encodedInner2Alone = c.encode(encInner2Alone, expected.baz.bar)
+    t.absent(
+      encoded.includes(encodedInner2Alone),
+      "outer struct doesn't include 2nd layer inner struct flags"
+    )
+    const encodedInner2WOFlags = encodedInner2Alone.slice(1)
+    t.ok(encoded.includes(encodedInner2WOFlags), 'outer struct inlines 2nd layer inner w/o flags')
+  }
+})
+
 test('basic required field missing', async (t) => {
   const schema = await createTestSchema(t)
 
