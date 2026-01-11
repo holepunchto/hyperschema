@@ -252,6 +252,58 @@ test('basic nested struct', async (t) => {
   }
 })
 
+test('flagsPosition', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-struct',
+      flagsPosition: 1,
+      fields: [
+        {
+          name: 'field1',
+          type: 'uint',
+          required: true
+        },
+        {
+          name: 'field2',
+          type: 'uint',
+          required: true
+        },
+        {
+          name: 'field3',
+          type: 'uint'
+        },
+        {
+          name: 'field4',
+          type: 'uint'
+        }
+      ]
+    })
+  })
+
+  t.is(schema.json.version, 1)
+  t.is(schema.module.version, 1)
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const initial = { field1: 10, field2: 42, field4: 1337 }
+    const encoded = c.encode(enc, initial)
+
+    {
+      const state = c.state(0, encoded.byteLength, encoded)
+      const r0 = c.uint.decode(state)
+      const flags = c.uint.decode(state)
+      t.absent((flags & 1) !== 0, 'flag for field3')
+      t.ok((flags & 2) !== 0, 'flag for field4')
+    }
+
+    const expected = { field1: 10, field2: 42, field3: 0, field4: 1337 }
+    t.alike(c.decode(enc, encoded), expected)
+  }
+})
+
 test('error if inlined struct isnt compact', async (t) => {
   const schema = await createTestSchema(t)
 
