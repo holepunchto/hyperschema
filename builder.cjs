@@ -391,10 +391,6 @@ class Struct extends ResolvedType {
     for (let i = 0; i < description.fields.length; i++) {
       const fieldDescription = description.fields[i]
 
-      if (fieldDescription.inline) {
-        if (!this.compact) throw new Error(`Struct ${this.fqn}: inline requires compact`)
-      }
-
       // bools or bitwise uints can only be set in the flag, so auto downgrade the from required
       // TODO: if we add semantic meaning to required, ie "user MUST set this", we should
       // add an additional state for this
@@ -405,6 +401,13 @@ class Struct extends ResolvedType {
       }
       const flag = !fieldDescription.required ? (this.maxFlag === 0 ? 1 : this.maxFlag * 2) : 0
       const field = new StructField(hyperschema, this, i, flag, fieldDescription)
+
+      if (fieldDescription.inline) {
+        if (!field.type.compact) throw new Error(`Struct ${this.fqn}: inline requires compact`)
+        if (fieldDescription.array) {
+          throw new Error(`Struct ${this.fqn}: Arrays cannot be inlined`)
+        }
+      }
 
       this.fields.push(field)
       this.fieldsByName.set(field.name, field)

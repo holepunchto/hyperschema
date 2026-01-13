@@ -304,7 +304,7 @@ test('flagsPosition', async (t) => {
   }
 })
 
-test('flagsPosition - throws when invalid position', async (t) => {
+test('error if inlined struct isnt compact', async (t) => {
   const schema = await createTestSchema(t)
 
   await t.exception(
@@ -312,27 +312,234 @@ test('flagsPosition - throws when invalid position', async (t) => {
       schema.rebuild((schema) => {
         const ns = schema.namespace('test')
         ns.register({
-          name: 'test-struct',
-          flagsPosition: 2,
+          name: 'interior-struct',
           fields: [
             {
               name: 'field1',
-              type: 'uint',
-              required: true
-            },
-            {
-              name: 'field2',
-              type: 'uint'
-            },
-            {
-              name: 'field3',
               type: 'uint'
             }
           ]
         })
+        ns.register({
+          name: 'test-struct',
+          // Compact is not required to throw the error but would cause error not to throw in previous bugged versions
+          compact: true,
+          fields: [
+            {
+              name: 'field1',
+              type: '@test/interior-struct',
+              inline: true
+            }
+          ]
+        })
       }),
-    /Struct .*: flagsPosition \(2\) must be before optional fields \(max 1\)/
+    /Struct .*: inline requires compact/
   )
+})
+
+test('inline - (en/de)codes', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'interior-struct',
+      compact: true,
+      fields: [
+        {
+          name: 'field1',
+          type: 'uint'
+        }
+      ]
+    })
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: '@test/interior-struct',
+          inline: true
+        }
+      ]
+    })
+  })
+
+  t.is(schema.json.version, 1)
+  t.is(schema.module.version, 1)
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const expected = { field1: { field1: 10 } }
+    const encoded = c.encode(enc, expected)
+    t.alike(expected, c.decode(enc, encoded))
+
+    const encInnerAlone = schema.module.resolveStruct('@test/interior-struct')
+    const encodedInnerAlone = c.encode(encInnerAlone, expected.field1)
+    t.absent(encoded.includes(encodedInnerAlone), "outer struct doesn't include inner struct flags")
+    const encodedInnerWOFlags = encodedInnerAlone.slice(1)
+    t.ok(encoded.includes(encodedInnerWOFlags), 'outer struct inlines inner w/o flags')
+  }
+})
+
+test('inline - flagsPosition', async (t) => {
+  const schema = await createTestSchema(t)
+
+  const flagsPosition = 1
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'interior-struct',
+      compact: true,
+      flagsPosition,
+      fields: [
+        {
+          name: 'field1',
+          type: 'uint',
+          required: true
+        },
+        {
+          name: 'field2',
+          type: 'uint',
+          required: true
+        },
+        {
+          name: 'field3',
+          type: 'uint'
+        }
+      ]
+    })
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: '@test/interior-struct',
+          inline: true
+        }
+      ]
+    })
+  })
+
+  t.is(schema.json.version, 1)
+  t.is(schema.module.version, 1)
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const initial = { field1: { field1: 10, field2: 42 } }
+    const expected = { field1: { field1: 10, field2: 42, field3: 0 } }
+    const encoded = c.encode(enc, initial)
+    t.alike(c.decode(enc, encoded), expected)
+
+    const encInnerAlone = schema.module.resolveStruct('@test/interior-struct')
+    const encodedInnerAlone = c.encode(encInnerAlone, expected.field1)
+    t.absent(encoded.includes(encodedInnerAlone), "outer struct doesn't include inner struct flags")
+
+    // Inlined version will skip 2nd byte where it normally encodes flags
+    const encodedInnerWOFlags = Buffer.alloc(encodedInnerAlone.byteLength - 1)
+    encodedInnerAlone.copy(encodedInnerWOFlags, 0, 0, flagsPosition) // Copy required fields before flags
+    encodedInnerAlone.copy(encodedInnerWOFlags, flagsPosition, flagsPosition + 1) // Copy everything after the flags
+
+    t.ok(encoded.includes(encodedInnerWOFlags), 'outer struct inlines inner w/o flags')
+  }
+})
+
+test('inline - inlining array throws error', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await t.exception(
+    () =>
+      schema.rebuild((schema) => {
+        const ns = schema.namespace('test')
+        ns.register({
+          name: 'interior-struct',
+          compact: true,
+          fields: [
+            {
+              name: 'field1',
+              type: 'uint'
+            }
+          ]
+        })
+        ns.register({
+          name: 'test-struct',
+          fields: [
+            {
+              name: 'field1',
+              type: '@test/interior-struct',
+              array: true,
+              inline: true
+            }
+          ]
+        })
+      }),
+    /Struct .*: Arrays cannot be inlined/
+  )
+})
+
+test('inline - recursively inlines inlined fields', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'layer2',
+      compact: true,
+      fields: [
+        {
+          name: 'foo',
+          type: 'uint'
+        }
+      ]
+    })
+    ns.register({
+      name: 'layer1',
+      compact: true,
+      fields: [
+        {
+          name: 'bar',
+          type: '@test/layer2',
+          inline: true
+        }
+      ]
+    })
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'baz',
+          type: '@test/layer1',
+          inline: true
+        }
+      ]
+    })
+  })
+
+  t.is(schema.json.version, 1)
+  t.is(schema.module.version, 1)
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const expected = { baz: { bar: { foo: 42 } } }
+    const encoded = c.encode(enc, expected)
+    t.alike(expected, c.decode(enc, encoded))
+
+    // Inline Layer 1
+    const encInnerAlone = schema.module.resolveStruct('@test/layer1')
+    const encodedInnerAlone = c.encode(encInnerAlone, expected.baz)
+    t.absent(encoded.includes(encodedInnerAlone), "outer struct doesn't include inner struct flags")
+    const encodedInnerWOFlags = encodedInnerAlone.slice(1)
+    t.ok(encoded.includes(encodedInnerWOFlags), 'outer struct inlines inner w/o flags')
+
+    // Inline layer 2
+    const encInner2Alone = schema.module.resolveStruct('@test/layer2')
+    const encodedInner2Alone = c.encode(encInner2Alone, expected.baz.bar)
+    t.absent(
+      encoded.includes(encodedInner2Alone),
+      "outer struct doesn't include 2nd layer inner struct flags"
+    )
+    const encodedInner2WOFlags = encodedInner2Alone.slice(1)
+    t.ok(encoded.includes(encodedInner2WOFlags), 'outer struct inlines 2nd layer inner w/o flags')
+  }
 })
 
 test('basic required field missing', async (t) => {
