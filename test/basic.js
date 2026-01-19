@@ -926,6 +926,45 @@ test('basic json', async (t) => {
   }
 })
 
+test('lexdate', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'test-struct',
+      compact: true,
+      fields: [
+        {
+          name: 'timestamp',
+          type: 'lexdate',
+          required: true
+        }
+      ]
+    })
+  })
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const buf = c.encode(enc, { timestamp: new Date(-100) })
+    const dec = c.decode(enc, buf)
+
+    t.alike({ timestamp: new Date(-100) }, dec)
+
+    const buf2 = c.encode(enc, { timestamp: new Date(99) })
+    t.is(
+      Buffer.compare(
+        buf,
+        // 1 off but positive to trip up normal date encoder
+        buf2
+      ),
+      -1,
+      'dates after epoch are sorted after preepoch dates'
+    )
+  }
+})
+
 test('basic default', async (t) => {
   const schema = await createTestSchema(t)
 
