@@ -2,10 +2,8 @@ const fs = require('fs')
 const p = require('path')
 
 const { SupportedTypes, getDefaultValue } = require('./lib/types.js')
-const generateCode = require('./lib/codegen')
 
 const JSON_FILE_NAME = 'schema.json'
-const CODE_FILE_NAME = 'index.js'
 
 class ResolvedType {
   constructor(hyperschema, fqn, description, existing) {
@@ -570,8 +568,21 @@ module.exports = class Hyperschema {
     return json
   }
 
-  toCode({ esm = this.constructor.esm, filename } = {}) {
+  toCode({ esm = this.constructor.esm, filename, lang = 'js' } = {}) {
     this.linkAll()
+
+    let generateCode
+    switch (lang) {
+      case 'js': {
+        generateCode = require('./lib/codegen')
+        break
+      }
+      case 'golang':
+      case 'go': {
+        generateCode = require('./lib/codegen_golang')
+        break
+      }
+    }
 
     return generateCode(this, { esm, filename })
   }
@@ -587,8 +598,24 @@ module.exports = class Hyperschema {
     if (!dir) dir = hyperschema.dir
     fs.mkdirSync(dir, { recursive: true })
 
+    let codeFileName
+    const lang = opts.lang || 'js'
+    switch (lang) {
+      case 'js': {
+        codeFileName = 'index.js'
+        break
+      }
+      case 'golang':
+      case 'go': {
+        codeFileName = 'schema.go'
+        break
+      }
+    }
+
+    console.log('codeFileName', codeFileName)
+
     const jsonPath = p.join(p.resolve(dir), JSON_FILE_NAME)
-    const codePath = p.join(p.resolve(dir), CODE_FILE_NAME)
+    const codePath = p.join(p.resolve(dir), codeFileName)
 
     fs.writeFileSync(
       jsonPath,
