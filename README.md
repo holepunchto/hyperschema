@@ -126,7 +126,7 @@ All struct definitions must take the following form:
 #### Alias Definition
 
 - `name`: (required) The name of the alias.
-- `type`: (required) Either a built-in type (i.e. `uint`) or a fully-qualified user-defined type (i.e. `@namespace/another-struct`)
+- `alias`: (required) Either a built-in type (i.e. `uint`) or a fully-qualified user-defined type (i.e. `@namespace/another-struct`) that the `name` should resolve to.
 
 ### API
 
