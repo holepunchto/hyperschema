@@ -568,7 +568,7 @@ module.exports = class Hyperschema {
     return json
   }
 
-  toCode({ esm = this.constructor.esm, filename, lang = 'js' } = {}) {
+  toCode({ esm = this.constructor.esm, filename, lang = 'js', ...rest } = {}) {
     this.linkAll()
 
     let generateCode
@@ -584,7 +584,7 @@ module.exports = class Hyperschema {
       }
     }
 
-    return generateCode(this, { esm, filename })
+    return generateCode(this, { esm, filename, ...rest })
   }
 
   static toDisk(hyperschema, dir, opts) {
