@@ -199,6 +199,10 @@ class StructField {
     this.array = !!this.description.array
     this.record = !!this.description.record
 
+    if (this.record) {
+      throw new Error(`Record not supported as field. Use @example/my-record`)
+    }
+
     this.version = description.version || hyperschema.version
 
     if (this.struct.existing) {
