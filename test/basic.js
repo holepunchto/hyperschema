@@ -476,6 +476,40 @@ test('inline - inlining array throws error', async (t) => {
   )
 })
 
+test('inline - inlining record throws error', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await t.exception(
+    () =>
+      schema.rebuild((schema) => {
+        const ns = schema.namespace('test')
+        ns.register({
+          name: 'interior-struct',
+          compact: true,
+          fields: [
+            {
+              name: 'field1',
+              type: 'uint'
+            }
+          ]
+        })
+        ns.register({
+          name: 'test-struct',
+          fields: [
+            {
+              name: 'field1',
+              key: 'string',
+              value: '@test/interior-struct',
+              record: true,
+              inline: true
+            }
+          ]
+        })
+      }),
+    /Struct .*: Records cannot be inlined/
+  )
+})
+
 test('inline - recursively inlines inlined fields', async (t) => {
   const schema = await createTestSchema(t)
 
@@ -677,6 +711,82 @@ test('basic array', async (t) => {
     const dec = c.decode(enc, buf)
 
     t.alike(dec, [{ foo: 'bar' }, { foo: 'baz' }])
+  }
+})
+
+test('basic record', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'test-record',
+      record: true,
+      key: 'string',
+      value: 'uint'
+    })
+  })
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-record')
+    const buf = c.encode(enc, {
+      foo: 10,
+      boo: 1
+    })
+    const dec = c.decode(enc, buf)
+
+    t.alike(
+      dec,
+      Object.assign(Object.create(null), {
+        foo: 10,
+        boo: 1
+      })
+    )
+  }
+})
+
+test('nested record', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'test-struct',
+      compact: true,
+      fields: [
+        {
+          name: 'nested',
+          type: 'string',
+          required: true
+        }
+      ]
+    })
+
+    ns.register({
+      name: 'test-record',
+      record: true,
+      key: 'string',
+      value: '@test/test-struct'
+    })
+  })
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-record')
+    const buf = c.encode(enc, {
+      foo: { nested: 'bar' },
+      boo: { nested: 'bar' }
+    })
+    const dec = c.decode(enc, buf)
+
+    t.alike(
+      dec,
+      Object.assign(Object.create(null), {
+        foo: { nested: 'bar' },
+        boo: { nested: 'bar' }
+      })
+    )
   }
 })
 
