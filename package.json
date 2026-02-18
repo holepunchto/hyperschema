@@ -53,7 +53,7 @@
   "homepage": "https://github.com/holepunchto/hyperschema#readme",
   "dependencies": {
     "bare-fs": "^4.0.1",
-    "compact-encoding": "^2.15.0",
+    "compact-encoding": "^2.19.0",
     "generate-object-property": "^2.0.0",
     "generate-string": "^1.0.1"
   },

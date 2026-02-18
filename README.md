@@ -120,6 +120,7 @@ All struct definitions must take the following form:
 - `type`: (required) Either a built-in type (i.e. `uint`) or a fully-qualified user-defined type (i.e. `@namespace/another-struct`)
 - `required`: (optional - default `false`) Is the field required
 - `array`: (optional - default `false`) Is the field an array of values
+- `record`: (optional - default `false`) Is the field a record of key/values
 - `useDefault`: (optional - default `true`) If there is no value, use a default for the type
 - `inline`: (optional) Whether to recursively inline the field using the parent struct's flags bitfield for skipping non-required fields. This can make the encoded size smaller. A field's type must be set as `compact` to be inlined.
 

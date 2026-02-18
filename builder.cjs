@@ -27,6 +27,7 @@ class ResolvedType {
     this.isEnum = false
     this.isStruct = false
     this.isArray = false
+    this.isRecord = false
     this.isAlias = false
     this.isExternal = false
     this.isVersioned = false
@@ -196,6 +197,7 @@ class StructField {
     this.typeFqn = this.type ? this.type.fqn : description.type
 
     this.array = !!this.description.array
+    this.record = !!this.description.record
 
     this.version = description.version || hyperschema.version
 
@@ -237,6 +239,7 @@ class StructField {
       name: this.description.name,
       required: this.description.required,
       array: this.description.array,
+      record: this.description.record,
       inline: this.description.inline,
       type: this.typeFqn,
       version: this.version
@@ -278,6 +281,49 @@ class Array extends ResolvedType {
       namespace: this.namespace,
       array: true,
       type: this.type.fqn
+    }
+  }
+}
+
+class Record extends ResolvedType {
+  constructor(hyperschema, fqn, description, existing) {
+    super(hyperschema, fqn, description, existing)
+    this.isRecord = true
+    this.default = null
+
+    if (!description.key) {
+      throw new Error(`Record ${this.fqn}: required 'key' definition is missing`)
+    }
+
+    if (!description.value) {
+      throw new Error(`Record ${this.fqn}: required 'value' definition is missing`)
+    }
+
+    this.key = hyperschema.resolve(description.key)
+    this.value = hyperschema.resolve(description.value)
+
+    if (!description.name) {
+      throw new Error(`Record ${this.fqn}: required 'name' definition is missing`)
+    }
+
+    if (!description.namespace) {
+      throw new Error(`Record ${this.fqn}: required 'namespace' definition is missing`)
+    }
+
+    if (this.existing) {
+      if (this.existing.key.fqn !== this.key.fqn || this.existing.value.fqn !== this.value.fqn) {
+        throw new Error(`Array was modified: ${this.fqn}`)
+      }
+    }
+  }
+
+  toJSON() {
+    return {
+      name: this.name,
+      namespace: this.namespace,
+      record: true,
+      key: this.key.fqn,
+      value: this.value.fqn
     }
   }
 }
@@ -403,6 +449,9 @@ class Struct extends ResolvedType {
       const field = new StructField(hyperschema, this, i, flag, fieldDescription)
 
       if (fieldDescription.inline) {
+        if (fieldDescription.record) {
+          throw new Error(`Struct ${this.fqn}: Records cannot be inlined`)
+        }
         if (!field.type.compact) throw new Error(`Struct ${this.fqn}: inline requires compact`)
         if (fieldDescription.array) {
           throw new Error(`Struct ${this.fqn}: Arrays cannot be inlined`)
@@ -584,6 +633,8 @@ module.exports = class Hyperschema {
       type = new Enum(this, fqn, description, existing)
     } else if (description.array) {
       type = new Array(this, fqn, description, existing)
+    } else if (description.record) {
+      type = new Record(this, fqn, description, existing)
     } else if (description.external) {
       type = new ExternalType(this, fqn, description, existing)
     } else if (description.versions) {
