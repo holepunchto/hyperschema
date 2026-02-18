@@ -74,9 +74,7 @@ class Alias extends ResolvedType {
 
     this.type = hyperschema.resolve(description.alias)
     if (!this.type)
-      throw new Error(
-        `Cannot resolve alias target ${description.alias} in ${description.name}`
-      )
+      throw new Error(`Cannot resolve alias target ${description.alias} in ${description.name}`)
 
     this.default = this.type.default
 
@@ -113,15 +111,12 @@ class ExternalType extends ResolvedType {
 
     this.isExternal = true
     this.default = null
-    this.filename =
-      hyperschema.namespaces.get(description.namespace)?.external || null
+    this.filename = hyperschema.namespaces.get(description.namespace)?.external || null
     this.external = description.external
   }
 
   require(filename) {
-    return p
-      .relative(p.join(filename, '..'), p.resolve(this.filename))
-      .replaceAll('\\', '/')
+    return p.relative(p.join(filename, '..'), p.resolve(this.filename)).replaceAll('\\', '/')
   }
 
   toJSON() {
@@ -139,8 +134,7 @@ class Enum extends ResolvedType {
 
     this.isEnum = true
     this.enum = []
-    this.offset =
-      typeof description.offset === 'number' ? description.offset : 1
+    this.offset = typeof description.offset === 'number' ? description.offset : 1
     this.default = description.strings ? null : 0
     this.strings = !!description.strings
 
@@ -160,9 +154,7 @@ class Enum extends ResolvedType {
       const prev = i < this.existing?.enum.length ? this.existing.enum[i] : null
 
       if (prev && prev.key !== key) {
-        throw new Error(
-          `Enum ${i} in ${fqn} changed. Was "${prev.key}" but is now "${key}`
-        )
+        throw new Error(`Enum ${i} in ${fqn} changed. Was "${prev.key}" but is now "${key}`)
       }
 
       if (!prev) {
@@ -171,11 +163,7 @@ class Enum extends ResolvedType {
 
       this.enum.push({
         key,
-        version: hyperschema.initializing
-          ? d.version
-          : prev
-            ? prev.version
-            : hyperschema.version
+        version: hyperschema.initializing ? d.version : prev ? prev.version : hyperschema.version
       })
     }
   }
@@ -240,12 +228,9 @@ class StructField {
   }
 
   link() {
-    if (this.type === null)
-      this.type = this.hyperschema.resolve(this.description.type) || null
+    if (this.type === null) this.type = this.hyperschema.resolve(this.description.type) || null
     if (this.type === null) {
-      throw new Error(
-        `Cannot resolve field type ${this.description.type} in ${this.name}`
-      )
+      throw new Error(`Cannot resolve field type ${this.description.type} in ${this.name}`)
     }
   }
 
@@ -273,24 +258,18 @@ class Array extends ResolvedType {
     this.default = null
 
     if (!description.type) {
-      throw new Error(
-        `Array ${this.fqn}: required 'type' definition is missing`
-      )
+      throw new Error(`Array ${this.fqn}: required 'type' definition is missing`)
     }
 
     this.type = hyperschema.resolve(description.type)
     this.framed = this.type.frameable()
 
     if (!description.name) {
-      throw new Error(
-        `Array ${this.fqn}: required 'name' definition is missing`
-      )
+      throw new Error(`Array ${this.fqn}: required 'name' definition is missing`)
     }
 
     if (!description.namespace) {
-      throw new Error(
-        `Array ${this.fqn}: required 'namespace' definition is missing`
-      )
+      throw new Error(`Array ${this.fqn}: required 'namespace' definition is missing`)
     }
 
     if (this.existing) {
@@ -317,37 +296,26 @@ class Record extends ResolvedType {
     this.default = null
 
     if (!description.key) {
-      throw new Error(
-        `Record ${this.fqn}: required 'key' definition is missing`
-      )
+      throw new Error(`Record ${this.fqn}: required 'key' definition is missing`)
     }
 
     if (!description.value) {
-      throw new Error(
-        `Record ${this.fqn}: required 'value' definition is missing`
-      )
+      throw new Error(`Record ${this.fqn}: required 'value' definition is missing`)
     }
 
     this.key = hyperschema.resolve(description.key)
     this.value = hyperschema.resolve(description.value)
 
     if (!description.name) {
-      throw new Error(
-        `Record ${this.fqn}: required 'name' definition is missing`
-      )
+      throw new Error(`Record ${this.fqn}: required 'name' definition is missing`)
     }
 
     if (!description.namespace) {
-      throw new Error(
-        `Record ${this.fqn}: required 'namespace' definition is missing`
-      )
+      throw new Error(`Record ${this.fqn}: required 'namespace' definition is missing`)
     }
 
     if (this.existing) {
-      if (
-        this.existing.key.fqn !== this.key.fqn ||
-        this.existing.value.fqn !== this.value.fqn
-      ) {
+      if (this.existing.key.fqn !== this.key.fqn || this.existing.value.fqn !== this.value.fqn) {
         throw new Error(`Record was modified: ${this.fqn}`)
       }
     }
@@ -369,13 +337,10 @@ class VersionedType extends ResolvedType {
     super(hyperschema, fqn, description, existing)
     this.isVersioned = true
     this.default = null
-    this.filename =
-      hyperschema.namespaces.get(description.namespace)?.external || null
+    this.filename = hyperschema.namespaces.get(description.namespace)?.external || null
 
     if (!description.versions) {
-      throw new Error(
-        `VersionedType ${this.fqn}: required 'versions' definition is missing`
-      )
+      throw new Error(`VersionedType ${this.fqn}: required 'versions' definition is missing`)
     }
 
     this.versions = description.versions.map((v) => {
@@ -393,15 +358,11 @@ class VersionedType extends ResolvedType {
     this.framed = true
 
     if (!description.name) {
-      throw new Error(
-        `VersionedType ${this.fqn}: required 'name' definition is missing`
-      )
+      throw new Error(`VersionedType ${this.fqn}: required 'name' definition is missing`)
     }
 
     if (!description.namespace) {
-      throw new Error(
-        `VersionedType ${this.fqn}: required 'namespace' definition is missing`
-      )
+      throw new Error(`VersionedType ${this.fqn}: required 'namespace' definition is missing`)
     }
 
     if (this.existing) {
@@ -412,9 +373,7 @@ class VersionedType extends ResolvedType {
   }
 
   require(filename) {
-    return p
-      .relative(p.join(filename, '..'), p.resolve(this.filename))
-      .replaceAll('\\', '/')
+    return p.relative(p.join(filename, '..'), p.resolve(this.filename)).replaceAll('\\', '/')
   }
 
   toJSON() {
@@ -456,15 +415,11 @@ class Struct extends ResolvedType {
     }
 
     if (!description.name) {
-      throw new Error(
-        `Struct ${this.fqn}: required 'name' definition is missing`
-      )
+      throw new Error(`Struct ${this.fqn}: required 'name' definition is missing`)
     }
 
     if (!description.fields) {
-      throw new Error(
-        `Struct ${this.fqn}: required 'fields' definition is missing`
-      )
+      throw new Error(`Struct ${this.fqn}: required 'fields' definition is missing`)
     }
 
     if (this.existing) {
@@ -490,32 +445,18 @@ class Struct extends ResolvedType {
       // TODO: if we add semantic meaning to required, ie "user MUST set this", we should
       // add an additional state for this
       if (fieldDescription.required) {
-        if (
-          fieldDescription.type === 'bool' ||
-          BitwiseNumericTypes.has(fieldDescription.type)
-        ) {
+        if (fieldDescription.type === 'bool' || BitwiseNumericTypes.has(fieldDescription.type)) {
           fieldDescription.required = false
         }
       }
-      const flag = !fieldDescription.required
-        ? this.maxFlag === 0
-          ? 1
-          : this.maxFlag * 2
-        : 0
-      const field = new StructField(
-        hyperschema,
-        this,
-        i,
-        flag,
-        fieldDescription
-      )
+      const flag = !fieldDescription.required ? (this.maxFlag === 0 ? 1 : this.maxFlag * 2) : 0
+      const field = new StructField(hyperschema, this, i, flag, fieldDescription)
 
       if (fieldDescription.inline) {
         if (fieldDescription.record) {
           throw new Error(`Struct ${this.fqn}: Records cannot be inlined`)
         }
-        if (!field.type.compact)
-          throw new Error(`Struct ${this.fqn}: inline requires compact`)
+        if (!field.type.compact) throw new Error(`Struct ${this.fqn}: inline requires compact`)
         if (fieldDescription.array) {
           throw new Error(`Struct ${this.fqn}: Arrays cannot be inlined`)
         }
@@ -528,10 +469,7 @@ class Struct extends ResolvedType {
         this.optionals.push(field)
         this.maxFlag = flag
       }
-      if (
-        indexBeforeOptional === -1 &&
-        (!fieldDescription.required || fieldDescription.inline)
-      ) {
+      if (indexBeforeOptional === -1 && (!fieldDescription.required || fieldDescription.inline)) {
         indexBeforeOptional = i
         if (this.flagsPosition === -1) {
           this.flagsPosition = i
@@ -730,8 +668,7 @@ module.exports = class Hyperschema {
   }
 
   resolve(fqn, { aliases = true } = {}) {
-    if (Primitive.AllPrimitives.has(fqn))
-      return Primitive.AllPrimitives.get(fqn)
+    if (Primitive.AllPrimitives.has(fqn)) return Primitive.AllPrimitives.get(fqn)
     const type = this.types.get(fqn)
     if (!aliases && type.isAlias) return type.type
     return type
@@ -767,20 +704,12 @@ module.exports = class Hyperschema {
     const jsonPath = p.join(p.resolve(dir), JSON_FILE_NAME)
     const codePath = p.join(p.resolve(dir), CODE_FILE_NAME)
 
-    fs.writeFileSync(
-      jsonPath,
-      JSON.stringify(hyperschema.toJSON(), null, 2) + '\n',
-      {
-        encoding: 'utf-8'
-      }
-    )
-    fs.writeFileSync(
-      codePath,
-      hyperschema.toCode({ ...opts, filename: codePath }),
-      {
-        encoding: 'utf-8'
-      }
-    )
+    fs.writeFileSync(jsonPath, JSON.stringify(hyperschema.toJSON(), null, 2) + '\n', {
+      encoding: 'utf-8'
+    })
+    fs.writeFileSync(codePath, hyperschema.toCode({ ...opts, filename: codePath }), {
+      encoding: 'utf-8'
+    })
   }
 
   static from(json, opts) {
