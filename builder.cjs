@@ -199,6 +199,10 @@ class StructField {
     this.array = !!this.description.array
     this.record = !!this.description.record
 
+    if (this.record) {
+      throw new Error(`Record not supported as field. Use @example/my-record`)
+    }
+
     this.version = description.version || hyperschema.version
 
     if (this.struct.existing) {
@@ -312,7 +316,7 @@ class Record extends ResolvedType {
 
     if (this.existing) {
       if (this.existing.key.fqn !== this.key.fqn || this.existing.value.fqn !== this.value.fqn) {
-        throw new Error(`Array was modified: ${this.fqn}`)
+        throw new Error(`Record was modified: ${this.fqn}`)
       }
     }
   }
