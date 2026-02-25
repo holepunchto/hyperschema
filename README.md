@@ -48,7 +48,7 @@ const { resolveStruct } = require('./schema')
 const encoding = resolveStruct('@namespace-1/basic-struct', 1)
 
 // { id: 10, other: 20 }
-c.decode(c.encode(encoding, { id: 10, other: 20 }))
+c.decode(encoding, c.encode(encoding, { id: 10, other: 20 }))
 ```
 
 You can subsequently update your definition of `@namespace-1/basic-struct`, so long as that update follows append-only rules (i.e. only additional optional fields can be added).
@@ -69,7 +69,7 @@ ns1.register({
       type: 'uint'
     },
     {
-      name: 'another'.
+      name: 'another',
       type: 'string'
     }
   ]
@@ -82,10 +82,10 @@ After rebuilding, you'll then be able to encode/decode with different versions o
 const encoding1 = resolveStruct('@namespace-1/basic-struct', 1)
 const encoding2 = resolveStruct('@namespace-1/basic-struct', 2)
 
-// { id: 10, other: 20 }
-c.decode(c.encode(encoding1, { id: 10, other: 20, another: 30 }))
-// { id: 10, other: 20, another: 30 }
-c.decode(c.encode(encoding2, { id: 10, other: 20, another: 30 }))
+// { id: 10, other: 20, another: null }
+c.decode(encoding1, c.encode(encoding1, { id: 10, other: 20, another: 'foo' }))
+// { id: 10, other: 20, another: 'foo' }
+c.decode(encoding2, c.encode(encoding2, { id: 10, other: 20, another: 'foo' }))
 ```
 
 ### Schema Definition
