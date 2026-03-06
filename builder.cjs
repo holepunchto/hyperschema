@@ -245,6 +245,7 @@ class StructField {
       array: this.description.array,
       record: this.description.record,
       inline: this.description.inline,
+      useDefault: this.description.useDefault,
       type: this.typeFqn,
       version: this.version
     }
