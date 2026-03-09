@@ -8,6 +8,7 @@ async function runTests() {
   test.pause()
 
   await import('./basic.js')
+  await import('./swift.js')
 
   test.resume()
 }
