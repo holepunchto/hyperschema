@@ -5,7 +5,7 @@ let package = Package(
   name: "HyperschemaTest",
   platforms: [.macOS(.v11)],
   dependencies: [
-    .package(url: "https://github.com/holepunchto/compact-encoding-swift", revision: "39906945d02d0cacb3ac59e52b5efb6d463566db")
+    .package(url: "https://github.com/holepunchto/compact-encoding-swift", branch: "main")
   ],
   targets: [
     .executableTarget(
