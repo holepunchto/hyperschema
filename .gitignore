@@ -143,5 +143,4 @@ test/swift-workspace/Sources/Schema.swift
 test/swift-workspace/Sources/main.swift
 test/swift-workspace/Package.resolved
 test/swift-workspace/.swiftpm
-test/.DS_Store
 
