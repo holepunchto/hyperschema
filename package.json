@@ -36,7 +36,7 @@
       "default": "path"
     },
     "child_process": {
-      "bare": "bare-node-child-process",
+      "bare": "bare-subprocess",
       "default": "child_process"
     }
   },
