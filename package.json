@@ -38,10 +38,6 @@
     "child_process": {
       "bare": "bare-node-child-process",
       "default": "child_process"
-    },
-    "process": {
-      "bare": "bare-node-process",
-      "default": "process"
     }
   },
   "scripts": {
