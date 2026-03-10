@@ -8,12 +8,7 @@ async function runTests() {
   test.pause()
 
   await import('./basic.js')
-  if (
-    (await import('process')).platform === 'darwin' ||
-    (await import('process')).platform === 'linux'
-  ) {
-    await import('./swift.js')
-  }
+  await import('./swift.js')
 
   test.resume()
 }
