@@ -9,7 +9,7 @@ async function runTests() {
   test.pause()
 
   await import('./basic.js')
-  if (os.platform() === 'darwin' || process.platform() === 'linux') {
+  if (os.platform() === 'darwin' || os.platform() === 'linux') {
     console.log('running swift tests')
     await import('./swift.js')
   }
