@@ -17,8 +17,8 @@ function runSwift(schemaSwift, mainSwift) {
 
   return {
     ok: result.status === 0,
-    stdout: result.stdout || '',
-    stderr: result.stderr || ''
+    stdout: result.stdout ? result.stdout.toString() : '',
+    stderr: result.stderr ? result.stderr.toString() : ''
   }
 }
 

@@ -2,8 +2,7 @@
 
 const test = require('brittle')
 const c = require('compact-encoding')
-const Hyperschema = require('../builder.cjs')
-const generateSwift = require('../lib/swift-codegen')
+const SwiftHyperschema = require('../swift.cjs')
 const { runSwift } = require('./helpers/swift')
 const { createTestSchema } = require('./helpers')
 const { isWindows } = require('which-runtime')
@@ -18,9 +17,8 @@ for (const fixture of fixtures) {
     const jsSchema = await createTestSchema(t)
     await jsSchema.rebuild(fixture.register)
 
-    const swiftSchema = Hyperschema.from(null)
+    const swiftSchema = SwiftHyperschema.from(null)
     fixture.register(swiftSchema)
-    const swiftCode = generateSwift(swiftSchema)
 
     const lines = ['import Foundation']
     for (const kase of swiftCases) {
@@ -37,7 +35,7 @@ for (const fixture of fixtures) {
     }
     lines.push('print("OK")')
 
-    const result = runSwift(swiftCode, lines.join('\n'))
+    const result = runSwift(swiftSchema.toCode(), lines.join('\n'))
     t.ok(result.ok, `JS→Swift failed:\n${result.stderr}`)
   })
 
@@ -46,9 +44,8 @@ for (const fixture of fixtures) {
     const jsSchema = await createTestSchema(t)
     await jsSchema.rebuild(fixture.register)
 
-    const swiftSchema = Hyperschema.from(null)
+    const swiftSchema = SwiftHyperschema.from(null)
     fixture.register(swiftSchema)
-    const swiftCode = generateSwift(swiftSchema)
 
     for (const kase of swiftCases) {
       const lines = [
@@ -58,7 +55,7 @@ for (const fixture of fixtures) {
         'print(buffer.base64EncodedString())'
       ]
 
-      const result = runSwift(swiftCode, lines.join('\n'))
+      const result = runSwift(swiftSchema.toCode(), lines.join('\n'))
       t.ok(result.ok, `Swift encode failed:\n${result.stderr}`)
 
       const bytes = Buffer.from(result.stdout.trim(), 'base64')
