@@ -47,18 +47,23 @@ for (const fixture of fixtures) {
     const swiftSchema = SwiftHyperschema.from(null)
     fixture.register(swiftSchema)
 
+    // Batch all cases into a single swift run — one base64 line per case on stdout
+    const lines = ['import Foundation']
     for (const kase of swiftCases) {
-      const lines = [
-        'import Foundation',
-        `let value = ${kase.swift.encode}`,
-        `let buffer = encode(${kase.swift.codec}, value)`,
-        'print(buffer.base64EncodedString())'
-      ]
+      lines.push('do {')
+      lines.push(`  let value = ${kase.swift.encode}`)
+      lines.push(`  let buffer = encode(${kase.swift.codec}, value)`)
+      lines.push('  print(buffer.base64EncodedString())')
+      lines.push('}')
+    }
 
-      const result = runSwift(swiftSchema.toCode(), lines.join('\n'))
-      t.ok(result.ok, `Swift encode failed:\n${result.stderr}`)
+    const result = runSwift(swiftSchema.toCode(), lines.join('\n'))
+    t.ok(result.ok, `Swift encode failed:\n${result.stderr}`)
 
-      const bytes = Buffer.from(result.stdout.trim(), 'base64')
+    const outputs = result.stdout.trim().split('\n')
+    for (let i = 0; i < swiftCases.length; i++) {
+      const kase = swiftCases[i]
+      const bytes = Buffer.from(outputs[i], 'base64')
       const enc = jsSchema.module.resolveStruct(kase.type)
       t.alike(
         c.decode(enc, bytes),
