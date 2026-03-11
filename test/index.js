@@ -9,6 +9,7 @@ async function runTests() {
 
   await import('./basic.js')
   await import('./swift.js')
+  await import('./cross-language.js')
 
   test.resume()
 }
