@@ -47,7 +47,7 @@
     "test": "prettier . --check && brittle test/index.js",
     "test:bare": "prettier . --check && bare test/index.js",
     "test:swift": "prettier . --check && brittle test/swift.js",
-    "test:cross-language": "prettier . --check && brittle test/cross-language.js"
+    "test:cross-language:swift": "prettier . --check && brittle test/cross-language.js"
   },
   "repository": {
     "type": "git",

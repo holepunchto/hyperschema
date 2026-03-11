@@ -135,7 +135,7 @@ test/test-storage
 .vscode
 
 # Javascript codegen
-schema/
+/schema/
 
 # Swift codegen
 test/swift-workspace/.build

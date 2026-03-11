@@ -1,9 +1,12 @@
+'use strict'
+
 const { spawnSync } = require('child_process')
 const path = require('path')
 const fs = require('fs')
 
 const WORKSPACE = path.join(__dirname, '../swift-workspace')
 const SOURCES = path.join(WORKSPACE, 'Sources')
+const TIMEOUT = 120000
 
 function runSwift(schemaSwift, mainSwift) {
   fs.mkdirSync(SOURCES, { recursive: true })
@@ -12,7 +15,8 @@ function runSwift(schemaSwift, mainSwift) {
 
   const result = spawnSync('swift', ['run'], {
     cwd: WORKSPACE,
-    encoding: 'utf8'
+    encoding: 'utf8',
+    timeout: TIMEOUT
   })
 
   return {
