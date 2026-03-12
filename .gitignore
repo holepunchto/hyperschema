@@ -133,3 +133,9 @@ package-lock.json
 
 test/test-storage
 .vscode
+
+# Javascript codegen
+/schema/
+
+# Swift codegen
+test/swift-workspace/
