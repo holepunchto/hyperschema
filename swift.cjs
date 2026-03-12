@@ -7,6 +7,7 @@ const generateSwift = require('./lib/swift-codegen')
 
 class SwiftHyperschema extends Hyperschema {
   toCode(opts) {
+    this.linkAll()
     return generateSwift(this, opts)
   }
 
