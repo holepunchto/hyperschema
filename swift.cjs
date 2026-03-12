@@ -52,7 +52,7 @@ let package = Package(
     .package(url: "https://github.com/holepunchto/compact-encoding-swift", branch: "main")
   ],
   targets: [
-    .executableTarget(
+    .target(
       name: "Schema",
       dependencies: [.product(name: "CompactEncoding", package: "compact-encoding-swift")],
       path: "Sources"
