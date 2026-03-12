@@ -32,7 +32,7 @@ for (const fixture of fixtures) {
     }
     lines.push('print("OK")')
 
-    const result = runSwift(schema.toCode(), lines.join('\n'))
+    const result = runSwift(schema, lines.join('\n'))
     t.ok(result.ok, `Swift roundtrip failed:\n${result.stderr}`)
   })
 }
@@ -49,12 +49,13 @@ test('swift: toDisk writes Schema.swift', { skip: isWindows }, async (t) => {
 
   SwiftHyperschema.toDisk(schema, dir)
 
-  t.ok(fs.existsSync(path.join(dir, 'Schema.swift')), 'Schema.swift was written')
+  t.ok(fs.existsSync(path.join(dir, 'Sources', 'Schema.swift')), 'Sources/Schema.swift was written')
   t.ok(fs.existsSync(path.join(dir, 'schema.json')), 'schema.json was written')
+  t.ok(fs.existsSync(path.join(dir, 'Package.swift')), 'Package.swift was written')
   t.is(
-    fs.readFileSync(path.join(dir, 'Schema.swift'), 'utf8'),
+    fs.readFileSync(path.join(dir, 'Sources', 'Schema.swift'), 'utf8'),
     schema.toCode(),
-    'Schema.swift content matches toCode()'
+    'Sources/Schema.swift content matches toCode()'
   )
 })
 
@@ -77,7 +78,7 @@ test('swift: schema version — no bump on unchanged schema', { skip: isWindows 
   t.is(s2.version, 1)
 
   const result = runSwift(
-    s2.toCode(),
+    s2,
     [
       'let value = TestStruct(field1: 42)',
       'let buffer = encode(testStruct, value)',
@@ -98,7 +99,7 @@ test('swift: schema version — bump on new field', { skip: isWindows }, (t) => 
   t.is(s1.version, 1)
 
   const r1 = runSwift(
-    s1.toCode(),
+    s1,
     [
       'let value = TestStruct(field1: 10)',
       'let buffer = encode(testStruct, value)',
@@ -120,7 +121,7 @@ test('swift: schema version — bump on new field', { skip: isWindows }, (t) => 
   t.is(s2.version, 2)
 
   const r2 = runSwift(
-    s2.toCode(),
+    s2,
     [
       'let value = TestStruct(field1: 10, field2: 20)',
       'let buffer = encode(testStruct, value)',

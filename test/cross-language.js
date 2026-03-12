@@ -35,7 +35,7 @@ for (const fixture of fixtures) {
     }
     lines.push('print("OK")')
 
-    const result = runSwift(swiftSchema.toCode(), lines.join('\n'))
+    const result = runSwift(swiftSchema, lines.join('\n'))
     t.ok(result.ok, `JS→Swift failed:\n${result.stderr}`)
   })
 
@@ -57,7 +57,7 @@ for (const fixture of fixtures) {
       lines.push('}')
     }
 
-    const result = runSwift(swiftSchema.toCode(), lines.join('\n'))
+    const result = runSwift(swiftSchema, lines.join('\n'))
     t.ok(result.ok, `Swift encode failed:\n${result.stderr}`)
 
     const outputs = result.stdout.trim().split('\n')

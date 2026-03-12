@@ -3,14 +3,16 @@
 const { spawnSync } = require('child_process')
 const path = require('path')
 const fs = require('fs')
+const SwiftHyperschema = require('../../swift.cjs')
 
 const WORKSPACE = path.join(__dirname, '../swift-workspace')
 const SOURCES = path.join(WORKSPACE, 'Sources')
 const TIMEOUT = 120000
 
-function runSwift(schemaSwift, mainSwift) {
-  fs.mkdirSync(SOURCES, { recursive: true })
-  fs.writeFileSync(path.join(SOURCES, 'Schema.swift'), schemaSwift)
+function runSwift(hyperschema, mainSwift) {
+  // Use toDisk() to generate the full Swift package layout (Package.swift +
+  // Sources/Schema.swift) so the workspace always matches what users get.
+  SwiftHyperschema.toDisk(hyperschema, WORKSPACE)
   fs.writeFileSync(path.join(SOURCES, 'main.swift'), mainSwift)
 
   const result = spawnSync('swift', ['run'], {
