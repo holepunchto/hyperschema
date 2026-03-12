@@ -21,10 +21,15 @@ function runSwift(hyperschema, mainSwift) {
     timeout: TIMEOUT
   })
 
+  const timedOut = result.error && result.error.code === 'ETIMEDOUT'
   return {
-    ok: result.status === 0,
+    ok: result.status === 0 && !timedOut,
     stdout: result.stdout ? result.stdout.toString() : '',
-    stderr: result.stderr ? result.stderr.toString() : ''
+    stderr: timedOut
+      ? `[swift run timed out after ${TIMEOUT}ms] ${result.error.message}`
+      : result.stderr
+        ? result.stderr.toString()
+        : ''
   }
 }
 
