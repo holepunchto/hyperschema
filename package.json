@@ -6,7 +6,6 @@
     "lib/*.js",
     "builder.mjs",
     "builder.cjs",
-    "swift.cjs",
     "runtime.mjs",
     "runtime.cjs",
     "primitives.mjs",
@@ -18,7 +17,6 @@
       "import": "./builder.mjs",
       "default": "./builder.cjs"
     },
-    "./swift": "./swift.cjs",
     "./runtime": {
       "import": "./runtime.mjs",
       "default": "./runtime.cjs"
@@ -45,9 +43,7 @@
   "scripts": {
     "format": "prettier . --write",
     "test": "prettier . --check && brittle test/index.js",
-    "test:bare": "prettier . --check && bare test/index.js",
-    "test:swift": "prettier . --check && brittle test/swift.js",
-    "test:cross-language:swift": "prettier . --check && brittle test/cross-language.js"
+    "test:bare": "prettier . --check && bare test/index.js"
   },
   "repository": {
     "type": "git",
