@@ -2,10 +2,12 @@
   "name": "hyperschema",
   "version": "1.21.0",
   "description": "Create registries of declarative compact-encoding schemas",
+  "types": "./builder.d.ts",
   "files": [
     "lib/*.js",
     "builder.mjs",
     "builder.cjs",
+    "builder.d.ts",
     "runtime.mjs",
     "runtime.cjs",
     "primitives.mjs",
@@ -14,6 +16,7 @@
   "exports": {
     "./package": "./package.json",
     ".": {
+      "types": "./builder.d.ts",
       "import": "./builder.mjs",
       "default": "./builder.cjs"
     },
