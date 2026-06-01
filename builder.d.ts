@@ -17,8 +17,6 @@ declare class Hyperschema {
 
   static esm: boolean
 
-  // Polymorphic `this` so subclasses get their own type back, matching the
-  // runtime's `new this(...)`: `SwiftHyperschema.from(null)` is a SwiftHyperschema.
   static from<T extends typeof Hyperschema>(
     this: T,
     json?: string | Hyperschema.SchemaJSON | null,
