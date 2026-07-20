@@ -576,6 +576,7 @@ class HyperschemaNamespace {
     this.hyperschema = hyperschema
     this.name = name
     this.external = null
+    this.fromJSON = false
   }
 
   require(filename) {
@@ -606,6 +607,15 @@ module.exports = class Hyperschema {
     this.initializing = true
 
     if (json) {
+      if (json.namespaces) {
+        for (const desc of json.namespaces) {
+          const ns = this.namespace(desc.name)
+          if (desc.external) {
+            ns.require(this.dir ? p.resolve(this.dir, desc.external) : desc.external)
+          }
+          ns.fromJSON = true
+        }
+      }
       for (let i = 0; i < json.schema.length; i++) {
         const description = json.schema[i]
         this.register(description)
@@ -669,7 +679,12 @@ module.exports = class Hyperschema {
   }
 
   namespace(name) {
-    if (this.namespaces.has(name)) throw new Error('Namespace already exists')
+    const existing = this.namespaces.get(name)
+    if (existing) {
+      if (!existing.fromJSON) throw new Error('Namespace already exists')
+      existing.fromJSON = false
+      return existing
+    }
     const ns = new HyperschemaNamespace(this, name)
     this.namespaces.set(name, ns)
     return ns
@@ -682,13 +697,23 @@ module.exports = class Hyperschema {
     return type
   }
 
-  toJSON() {
+  toJSON({ dir = this.dir } = {}) {
     this.linkAll()
 
     const json = {
       version: this.version,
       schema: this.schema.filter((t) => !t.derived)
     }
+    const namespaces = []
+    for (const ns of this.namespaces.values()) {
+      if (!ns.external) continue
+      const external = p.resolve(ns.external)
+      namespaces.push({
+        name: ns.name,
+        external: dir ? p.relative(p.resolve(dir), external).replaceAll('\\', '/') : external
+      })
+    }
+    if (namespaces.length > 0) json.namespaces = namespaces
     return json
   }
 
@@ -712,7 +737,7 @@ module.exports = class Hyperschema {
     const jsonPath = p.join(p.resolve(dir), JSON_FILE_NAME)
     const codePath = p.join(p.resolve(dir), CODE_FILE_NAME)
 
-    fs.writeFileSync(jsonPath, JSON.stringify(hyperschema.toJSON(), null, 2) + '\n', {
+    fs.writeFileSync(jsonPath, JSON.stringify(hyperschema.toJSON({ dir }), null, 2) + '\n', {
       encoding: 'utf-8'
     })
     fs.writeFileSync(codePath, hyperschema.toCode({ ...opts, filename: codePath }), {

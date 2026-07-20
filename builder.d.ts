@@ -10,7 +10,7 @@ declare class Hyperschema {
   register(description: Hyperschema.TypeDescription): Hyperschema.ResolvedType
   namespace(name: string): Hyperschema.Namespace
   resolve(fqn: string, opts?: { aliases?: boolean }): Hyperschema.ResolvedType
-  toJSON(): Hyperschema.SchemaJSON
+  toJSON(opts?: { dir?: string | null }): Hyperschema.SchemaJSON
   toCode(opts?: Hyperschema.ToCodeOptions): string
   linkAll(): void
   maybeBumpVersion(): void
@@ -49,6 +49,7 @@ declare namespace Hyperschema {
   export interface SchemaJSON {
     version: number
     schema: object[]
+    namespaces?: { name: string; external: string }[]
   }
 
   export interface Namespace {
