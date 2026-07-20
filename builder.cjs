@@ -345,15 +345,14 @@ class VersionedType extends ResolvedType {
 
     this.versions = description.versions.map((v) => {
       return {
-        type: hyperschema.resolve(v.type),
+        typeName: v.type,
+        get type() {
+          return hyperschema.resolve(this.typeName)
+        },
         version: v.version,
         map: v.map || null
       }
     })
-
-    for (const v of this.versions) {
-      v.type.expectsVersion = true
-    }
 
     this.framed = true
 
@@ -372,6 +371,15 @@ class VersionedType extends ResolvedType {
     }
   }
 
+  link() {
+    for (const v of this.versions) {
+      if (!v.type) {
+        throw new Error(`VersionedType ${this.fqn}: cannot resolve version type ${v.typeName}`)
+      }
+      v.type.expectsVersion = true
+    }
+  }
+
   require(filename) {
     return p.relative(p.join(filename, '..'), p.resolve(this.filename)).replaceAll('\\', '/')
   }
@@ -381,7 +389,7 @@ class VersionedType extends ResolvedType {
       name: this.name,
       namespace: this.namespace,
       versions: this.versions.map((version) => ({
-        type: version.type.fqn,
+        type: version.typeName,
         map: version.map,
         version: version.version
       }))
