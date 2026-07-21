@@ -930,6 +930,71 @@ test('versioned struct', async (t) => {
   }
 })
 
+test('versioned struct gains a version in a later generation', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'thing-v1',
+      fields: [
+        {
+          name: 'value',
+          type: 'string',
+          required: true
+        }
+      ]
+    })
+
+    ns.register({
+      name: 'thing',
+      versions: [
+        {
+          version: 1,
+          type: '@test/thing-v1'
+        }
+      ]
+    })
+  })
+
+  // the v2 struct appends after the wrapper in the lineage - reload must tolerate the forward ref
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'thing-v2',
+      fields: [
+        {
+          name: 'value',
+          type: 'uint',
+          required: true
+        }
+      ]
+    })
+
+    ns.register({
+      name: 'thing',
+      versions: [
+        {
+          version: 1,
+          type: '@test/thing-v1'
+        },
+        {
+          version: 2,
+          type: '@test/thing-v2'
+        }
+      ]
+    })
+  })
+
+  await schema.rebuild(() => {})
+
+  const enc = schema.module.resolveStruct('@test/thing')
+  t.alike(c.decode(enc, c.encode(enc, { version: 1, value: '10' })), { version: 1, value: '10' })
+  t.alike(c.decode(enc, c.encode(enc, { version: 2, value: 10 })), { version: 2, value: 10 })
+})
+
 test('alias, enum, field versions should not sync with schema version if no change in definition', async (t) => {
   const schema = await createTestSchema(t)
 
