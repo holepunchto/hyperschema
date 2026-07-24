@@ -995,6 +995,63 @@ test('versioned struct gains a version in a later generation', async (t) => {
   t.alike(c.decode(enc, c.encode(enc, { version: 2, value: 10 })), { version: 2, value: 10 })
 })
 
+test('versioned struct encodes the latest version by default', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'v1',
+      fields: [
+        {
+          name: 'value',
+          type: 'uint',
+          required: true
+        }
+      ]
+    })
+
+    ns.register({
+      name: 'v2',
+      fields: [
+        {
+          name: 'value',
+          type: 'uint',
+          required: true
+        },
+        {
+          name: 'label',
+          type: 'string'
+        }
+      ]
+    })
+
+    ns.register({
+      name: 'versioned',
+      versions: [
+        {
+          version: 1,
+          type: '@test/v1'
+        },
+        {
+          version: 2,
+          type: '@test/v2'
+        }
+      ]
+    })
+  })
+
+  const enc = schema.module.resolveStruct('@test/versioned')
+
+  t.alike(c.decode(enc, c.encode(enc, { value: 10 })), {
+    version: 2,
+    value: 10,
+    label: null
+  })
+  t.alike(c.decode(enc, c.encode(enc, { version: 1, value: 10 })), { version: 1, value: 10 })
+})
+
 test('alias, enum, field versions should not sync with schema version if no change in definition', async (t) => {
   const schema = await createTestSchema(t)
 
