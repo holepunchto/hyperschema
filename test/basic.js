@@ -2,6 +2,7 @@ const test = require('brittle')
 const c = require('compact-encoding')
 const path = require('path')
 
+const Hyperschema = require('../builder.cjs')
 const { createTestSchema } = require('./helpers')
 
 test('basic struct, all required fields, version bump', async (t) => {
@@ -1050,6 +1051,94 @@ test('versioned struct encodes the latest version by default', async (t) => {
     label: null
   })
   t.alike(c.decode(enc, c.encode(enc, { version: 1, value: 10 })), { version: 1, value: 10 })
+})
+
+test('versioned struct with a map survives a reload', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.require(path.join(__dirname, 'helpers/external.js'))
+
+    ns.register({
+      name: 'v0',
+      fields: [
+        {
+          name: 'value',
+          type: 'string',
+          required: true
+        }
+      ]
+    })
+
+    ns.register({
+      name: 'v1',
+      fields: [
+        {
+          name: 'value',
+          type: 'uint',
+          required: true
+        }
+      ]
+    })
+
+    ns.register({
+      name: 'versioned',
+      versions: [
+        {
+          version: 0,
+          type: '@test/v0',
+          map: 'map'
+        },
+        {
+          version: 1,
+          type: '@test/v1'
+        }
+      ]
+    })
+  })
+
+  t.alike(schema.json.namespaces, [
+    {
+      name: 'test',
+      external: path
+        .relative(schema.dir, path.join(__dirname, 'helpers/external.js'))
+        .replaceAll('\\', '/')
+    }
+  ])
+
+  // reload from disk only: the maps file must be remembered without a new require call
+  {
+    const schemaReload = Hyperschema.from(schema.dir)
+    t.execution(() => schemaReload.toCode({ filename: path.join(schema.dir, 'index-reloaded.js') }))
+  }
+
+  const schemaModuleLoaded = require(schema.dir)
+
+  const enc = schemaModuleLoaded.resolveStruct('@test/versioned')
+  t.alike(c.decode(enc, c.encode(enc, { version: 0, value: '10' })), { version: 0, value: 10 })
+})
+
+test('schema without externals persists no namespaces entry', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'plain',
+      fields: [
+        {
+          name: 'value',
+          type: 'uint',
+          required: true
+        }
+      ]
+    })
+  })
+
+  t.is(schema.json.namespaces, undefined)
 })
 
 test('alias, enum, field versions should not sync with schema version if no change in definition', async (t) => {
