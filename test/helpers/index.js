@@ -49,5 +49,6 @@ async function createTestSchema(t) {
 }
 
 module.exports = {
-  createTestSchema
+  createTestSchema,
+  makeDir
 }
