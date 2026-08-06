@@ -44,8 +44,9 @@ for (const name of names) {
 
 function fixtures() {
   return fs
-    .readdirSync(fixturesDir)
-    .filter((name) => fs.statSync(p.join(fixturesDir, name)).isDirectory())
+    .readdirSync(fixturesDir, { withFileTypes: true })
+    .filter((dirent) => dirent.isDirectory())
+    .map((dirent) => dirent.name)
     .sort((a, b) => Number(a) - Number(b))
 }
 
