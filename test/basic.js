@@ -1,5 +1,6 @@
 const test = require('brittle')
 const c = require('compact-encoding')
+const fs = require('fs')
 const path = require('path')
 
 const Hyperschema = require('../builder.cjs')
@@ -1429,3 +1430,81 @@ test('embedded versioned struct round trips within and across generations', asyn
     })
   }
 })
+
+test('a newly declared versioned type is framed and records it', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(define)
+
+  t.is(schema.json.schema[1].framed, true)
+  t.is(encodeOuter(schema.module).byteLength, 1 + 1 + 2 + 32)
+
+  // the flag survives a reload
+  await schema.rebuild(define)
+  t.is(schema.json.schema[1].framed, true)
+})
+
+test('a schema written before framing keeps its layout', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(define)
+  dropFramed(schema.dir)
+
+  await schema.rebuild(define)
+
+  t.is(schema.json.schema[1].framed, false)
+  t.is(encodeOuter(schema.module).byteLength, 1 + 2 + 32)
+
+  // and stays grandfathered on every later build
+  await schema.rebuild(define)
+  t.is(schema.json.schema[1].framed, false)
+})
+
+test('a grandfathered versioned type can opt in to framing', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(define)
+  dropFramed(schema.dir)
+
+  await schema.rebuild((schema) => define(schema, true))
+
+  t.is(schema.json.schema[1].framed, true)
+  t.is(encodeOuter(schema.module).byteLength, 1 + 1 + 2 + 32)
+})
+
+function dropFramed(dir) {
+  const file = path.join(dir, 'schema.json')
+  const json = JSON.parse(fs.readFileSync(file, 'utf-8'))
+  for (const type of json.schema) delete type.framed
+  fs.writeFileSync(file, JSON.stringify(json, null, 2))
+}
+
+function encodeOuter(module) {
+  return c.encode(module.resolveStruct('@test/outer'), {
+    inner: { version: 1, count: 3 },
+    tail: Buffer.alloc(32, 1)
+  })
+}
+
+function define(schema, framed) {
+  const ns = schema.namespace('test')
+
+  ns.register({
+    name: 'inner-v1',
+    fields: [{ name: 'count', type: 'uint', required: true }]
+  })
+
+  ns.register({
+    name: 'inner',
+    ...(framed ? { framed } : {}),
+    versions: [{ version: 1, type: '@test/inner-v1' }]
+  })
+
+  ns.register({
+    name: 'outer',
+    fields: [
+      { name: 'inner', type: '@test/inner' },
+      { name: 'tail', type: 'fixed32', required: true }
+    ]
+  })
+}
