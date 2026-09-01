@@ -354,7 +354,8 @@ class VersionedType extends ResolvedType {
       }
     })
 
-    this.framed = true
+    // a schema.json written before framing existed has no flag: keep its layout
+    this.framed = description.framed ?? existing?.framed ?? !hyperschema.initializing
 
     if (!description.name) {
       throw new Error(`VersionedType ${this.fqn}: required 'name' definition is missing`)
@@ -380,6 +381,10 @@ class VersionedType extends ResolvedType {
     }
   }
 
+  frameable() {
+    return this.framed
+  }
+
   require(filename) {
     return p.relative(p.join(filename, '..'), p.resolve(this.filename)).replaceAll('\\', '/')
   }
@@ -388,6 +393,7 @@ class VersionedType extends ResolvedType {
     return {
       name: this.name,
       namespace: this.namespace,
+      framed: this.framed,
       versions: this.versions.map((version) => ({
         type: version.typeName,
         map: version.map,
