@@ -1281,3 +1281,285 @@ test('basic default', async (t) => {
     t.alike(dec, { foo: 1, bar: null, baz: undefined, far: Buffer.alloc(3, 3) })
   }
 })
+
+test('array of bools - packed as a bitfield', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'bool-array',
+      array: true,
+      type: 'bool'
+    })
+  })
+
+  const enc = schema.module.resolveStruct('@test/bool-array')
+
+  // a uint length prefix followed by ceil(length / 8) bytes, lsb first
+  const cases = [
+    [[], '00'],
+    [[true], '0101'],
+    [[false], '0100'],
+    [[true, false, true], '0305'],
+    [[false, true, true], '0306'],
+    [new Array(8).fill(true), '08ff'],
+    [new Array(9).fill(true), '09ff01'],
+    [[...new Array(8).fill(false), true], '090001']
+  ]
+
+  for (const [value, expected] of cases) {
+    const buf = c.encode(enc, value)
+
+    t.is(buf.toString('hex'), expected, `encodes ${JSON.stringify(value)}`)
+    t.alike(c.decode(enc, buf), value, `decodes ${JSON.stringify(value)}`)
+  }
+})
+
+test('array of bools - one byte per eight values', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'bool-array',
+      array: true,
+      type: 'bool'
+    })
+  })
+
+  const enc = schema.module.resolveStruct('@test/bool-array')
+
+  for (let n = 0; n <= 130; n++) {
+    const value = new Array(n)
+    for (let i = 0; i < n; i++) value[i] = i % 3 === 0
+
+    const buf = c.encode(enc, value)
+
+    t.is(buf.length, 1 + Math.ceil(n / 8), `${n} bools fit in ${1 + Math.ceil(n / 8)} bytes`)
+    t.alike(c.decode(enc, buf), value, `${n} bools round trip`)
+  }
+})
+
+test('array of bools - truncated bitfield throws', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'bool-array',
+      array: true,
+      type: 'bool'
+    })
+  })
+
+  const enc = schema.module.resolveStruct('@test/bool-array')
+  const buf = c.encode(enc, new Array(20).fill(true))
+
+  t.exception(() => c.decode(enc, buf.subarray(0, buf.length - 1)), 'missing a bitfield byte')
+})
+
+test('array of bools - required struct field', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'bools',
+          type: 'bool',
+          array: true,
+          required: true
+        },
+        {
+          name: 'name',
+          type: 'string',
+          required: true
+        }
+      ]
+    })
+  })
+
+  // a required array stays required, unlike a scalar bool which is downgraded
+  // so it can live in the flags
+  t.is(schema.json.schema[0].fields[0].required, true, 'array field stays required')
+
+  const enc = schema.module.resolveStruct('@test/test-struct')
+  const expected = { bools: [true, false, true], name: 'hi' }
+  const buf = c.encode(enc, expected)
+
+  // no optional fields, so no flags byte: 03 05 (bitfield) 02 6869 (string)
+  t.is(buf.toString('hex'), '0305026869', 'no flags byte')
+  t.alike(c.decode(enc, buf), expected)
+})
+
+test('array of bools - optional struct field', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'name',
+          type: 'string',
+          required: true
+        },
+        {
+          name: 'bools',
+          type: 'bool',
+          array: true
+        }
+      ]
+    })
+  })
+
+  const enc = schema.module.resolveStruct('@test/test-struct')
+
+  {
+    const expected = { name: 'hi', bools: [true, false, true] }
+    t.alike(c.decode(enc, c.encode(enc, expected)), expected, 'present')
+  }
+
+  {
+    const buf = c.encode(enc, { name: 'hi', bools: null })
+    t.alike(c.decode(enc, buf), { name: 'hi', bools: null }, 'absent')
+    t.is(buf.toString('hex'), '02686900', 'flag is unset and no bitfield is written')
+  }
+
+  {
+    // an empty array is truthy, so it stays distinguishable from an absent one
+    const buf = c.encode(enc, { name: 'hi', bools: [] })
+    t.alike(c.decode(enc, buf), { name: 'hi', bools: [] }, 'empty array')
+    t.is(buf.toString('hex'), '0268690100', 'flag is set and an empty bitfield is written')
+  }
+})
+
+test('array of bools - alongside scalar bool flags', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'bools',
+          type: 'bool',
+          array: true,
+          required: true
+        },
+        {
+          name: 'yes',
+          type: 'bool'
+        },
+        {
+          name: 'no',
+          type: 'bool'
+        }
+      ]
+    })
+  })
+
+  const enc = schema.module.resolveStruct('@test/test-struct')
+  const expected = { bools: [true, true], yes: true, no: false }
+  const buf = c.encode(enc, expected)
+
+  // 02 03 (bitfield) 01 (flags: yes set, no unset)
+  t.is(buf.toString('hex'), '020301', 'scalar bools stay in the flags byte')
+  t.alike(c.decode(enc, buf), expected)
+})
+
+test('array of bools - via an alias', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'flag',
+      alias: 'bool'
+    })
+
+    ns.register({
+      name: 'flag-array',
+      array: true,
+      type: '@test/flag'
+    })
+  })
+
+  const enc = schema.module.resolveStruct('@test/flag-array')
+  const buf = c.encode(enc, [true, false, true])
+
+  t.is(buf.toString('hex'), '0305', 'an alias of bool packs too')
+  t.alike(c.decode(enc, buf), [true, false, true])
+})
+
+test('array of bools - dedupes across uses', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'first',
+      array: true,
+      type: 'bool'
+    })
+
+    ns.register({
+      name: 'second',
+      array: true,
+      type: 'bool'
+    })
+  })
+
+  const first = schema.module.resolveStruct('@test/first')
+  const second = schema.module.resolveStruct('@test/second')
+
+  t.alike(c.decode(second, c.encode(first, [true, false])), [true, false])
+})
+
+test('array of bools - bitwise uints cannot be arrays', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await t.exception(
+    () =>
+      schema.rebuild((schema) => {
+        const ns = schema.namespace('test')
+        ns.register({
+          name: 'test-struct',
+          fields: [
+            {
+              name: 'field1',
+              type: 'uint4',
+              array: true
+            }
+          ]
+        })
+      }),
+    /cannot be used as an array/
+  )
+
+  await t.exception(
+    () =>
+      schema.rebuild((schema) => {
+        const ns = schema.namespace('test')
+        ns.register({
+          name: 'nibbles',
+          array: true,
+          type: 'uint4'
+        })
+      }),
+    /cannot be used as an array/
+  )
+})
