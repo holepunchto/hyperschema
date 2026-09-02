@@ -264,6 +264,11 @@ class Array extends ResolvedType {
     this.type = hyperschema.resolve(description.type)
     this.framed = this.type.frameable()
 
+    // a bitwise uint has no standalone encoding, it only exists inside a struct's flags
+    if (BitwiseNumericTypes.has(description.type)) {
+      throw new Error(`Array ${this.fqn}: ${description.type} cannot be used as an array`)
+    }
+
     if (!description.name) {
       throw new Error(`Array ${this.fqn}: required 'name' definition is missing`)
     }
@@ -449,10 +454,18 @@ class Struct extends ResolvedType {
     for (let i = 0; i < description.fields.length; i++) {
       const fieldDescription = description.fields[i]
 
+      // a bitwise uint has no standalone encoding, it only exists inside the flags
+      if (fieldDescription.array && BitwiseNumericTypes.has(fieldDescription.type)) {
+        throw new Error(
+          `Struct ${this.fqn}: ${fieldDescription.type} cannot be used as an array (${fieldDescription.name})`
+        )
+      }
+
       // bools or bitwise uints can only be set in the flag, so auto downgrade the from required
       // TODO: if we add semantic meaning to required, ie "user MUST set this", we should
       // add an additional state for this
-      if (fieldDescription.required) {
+      // arrays are exempt: they carry a value of their own and never live in the flag
+      if (fieldDescription.required && !fieldDescription.array) {
         if (fieldDescription.type === 'bool' || BitwiseNumericTypes.has(fieldDescription.type)) {
           fieldDescription.required = false
         }
