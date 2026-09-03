@@ -1563,3 +1563,151 @@ test('array of bools - bitwise uints cannot be arrays', async (t) => {
     /cannot be used as an array/
   )
 })
+
+test('embedded versioned struct stays aligned when a later generation appends an optional field', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => define(schema, false))
+  const gen1 = schema.module
+
+  await schema.rebuild((schema) => define(schema, true))
+  const gen2 = schema.module
+
+  const tail = Buffer.alloc(32, 7)
+  const value = {
+    inner: { version: 1, count: 1, label: 'a', extra: 'b'.repeat(64) },
+    tail
+  }
+
+  const encoded = c.encode(gen2.resolveStruct('@test/outer'), value)
+  const decoded = c.decode(gen1.resolveStruct('@test/outer'), encoded)
+
+  t.alike(decoded.inner, { version: 1, count: 1, label: 'a' })
+  t.alike(decoded.tail, tail)
+
+  function define(schema, extra) {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'inner-v1',
+      fields: [
+        { name: 'count', type: 'uint', required: true },
+        { name: 'label', type: 'string' },
+        ...(extra ? [{ name: 'extra', type: 'string' }] : [])
+      ]
+    })
+
+    ns.register({
+      name: 'inner',
+      versions: [{ version: 1, type: '@test/inner-v1' }]
+    })
+
+    ns.register({
+      name: 'outer',
+      fields: [
+        { name: 'inner', type: '@test/inner' },
+        { name: 'tail', type: 'fixed32', required: true }
+      ]
+    })
+  }
+})
+
+test('embedded versioned struct stays aligned when a later generation adds its first optional field', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => define(schema, false))
+  const gen1 = schema.module
+
+  await schema.rebuild((schema) => define(schema, true))
+  const gen2 = schema.module
+
+  const tail = Buffer.alloc(32, 9)
+
+  // the new field is never set, but the flags byte it introduces still shifts an unframed embed
+  const encoded = c.encode(gen2.resolveStruct('@test/outer'), {
+    inner: { version: 1, count: 3 },
+    tail
+  })
+  const decoded = c.decode(gen1.resolveStruct('@test/outer'), encoded)
+
+  t.alike(decoded.inner, { version: 1, count: 3 })
+  t.alike(decoded.tail, tail)
+
+  function define(schema, optional) {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'inner-v1',
+      fields: [
+        { name: 'count', type: 'uint', required: true },
+        ...(optional ? [{ name: 'label', type: 'string' }] : [])
+      ]
+    })
+
+    ns.register({
+      name: 'inner',
+      versions: [{ version: 1, type: '@test/inner-v1' }]
+    })
+
+    ns.register({
+      name: 'outer',
+      fields: [
+        { name: 'inner', type: '@test/inner' },
+        { name: 'tail', type: 'fixed32', required: true }
+      ]
+    })
+  }
+})
+
+test('embedded versioned struct round trips within and across generations', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => define(schema, false))
+  const gen1 = schema.module
+
+  await schema.rebuild((schema) => define(schema, true))
+  const gen2 = schema.module
+
+  const enc1 = gen1.resolveStruct('@test/outer')
+  const enc2 = gen2.resolveStruct('@test/outer')
+  const tail = Buffer.alloc(32, 4)
+
+  {
+    const value = { inner: { version: 1, count: 7, label: 'a', extra: 'e' }, tail }
+    t.alike(c.decode(enc2, c.encode(enc2, value)), value)
+  }
+
+  {
+    const value = { inner: { version: 1, count: 7, label: 'a' }, tail }
+    t.alike(c.decode(enc2, c.encode(enc1, value)), {
+      inner: { version: 1, count: 7, label: 'a', extra: null },
+      tail
+    })
+  }
+
+  function define(schema, extra) {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'inner-v1',
+      fields: [
+        { name: 'count', type: 'uint', required: true },
+        { name: 'label', type: 'string' },
+        ...(extra ? [{ name: 'extra', type: 'string' }] : [])
+      ]
+    })
+
+    ns.register({
+      name: 'inner',
+      versions: [{ version: 1, type: '@test/inner-v1' }]
+    })
+
+    ns.register({
+      name: 'outer',
+      fields: [
+        { name: 'inner', type: '@test/inner' },
+        { name: 'tail', type: 'fixed32', required: true }
+      ]
+    })
+  }
+})
