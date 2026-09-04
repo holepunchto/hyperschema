@@ -1431,6 +1431,77 @@ test('embedded versioned struct round trips within and across generations', asyn
   }
 })
 
+test('dont frame compact version of versioned struct', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => define(schema, false))
+  const gen1 = schema.module
+
+  await schema.rebuild((schema) => define(schema, true))
+  const gen2 = schema.module
+
+  const enc1 = gen1.resolveStruct('@test/outer')
+  const enc2 = gen2.resolveStruct('@test/outer')
+  const tail = Buffer.alloc(32, 4)
+
+  {
+    const value = { inner: { version: 2, count: 7, label: 'a', extra: 'e' }, tail }
+    t.alike(c.decode(enc2, c.encode(enc2, value)), value, 'roundtrip on recent')
+  }
+
+  {
+    const value = { inner: { version: 1, count: 7, label: 'a' }, tail }
+    t.alike(
+      c.decode(enc2, c.encode(enc1, value)),
+      {
+        inner: { version: 1, count: 7, label: 'a' },
+        tail
+      },
+      'encode w/ 1 -> decode w/ 2'
+    )
+  }
+
+  function define(schema, extra) {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'inner-v1',
+      compact: true,
+      fields: [
+        { name: 'count', type: 'uint', required: true },
+        { name: 'label', type: 'string' }
+      ]
+    })
+
+    if (extra) {
+      ns.register({
+        name: 'inner-v2',
+        fields: [
+          { name: 'count', type: 'uint', required: true },
+          { name: 'label', type: 'string' },
+          { name: 'extra', type: 'string' }
+        ]
+      })
+    }
+
+    ns.register({
+      name: 'inner',
+      versions: [
+        { version: 1, type: '@test/inner-v1' },
+        ...(extra ? [{ version: 2, type: '@test/inner-v2' }] : [])
+      ]
+    })
+
+    ns.register({
+      name: 'outer',
+      fields: [
+        { name: 'inner', type: '@test/inner' },
+        { name: 'tail', type: 'fixed32', required: true }
+      ]
+    })
+  }
+})
+
 test('a newly declared versioned type is framed and records it', async (t) => {
   const schema = await createTestSchema(t)
 
