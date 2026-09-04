@@ -129,6 +129,12 @@ All struct definitions must take the following form:
 - `name`: (required) The name of the alias.
 - `type`: (required) Either a built-in type (i.e. `uint`) or a fully-qualified user-defined type (i.e. `@namespace/another-struct`)
 
+#### Versioned Type Definition
+
+- `name`: (required) The name of the versioned type.
+- `versions`: (required) An array of `{ version, type, map }`, where `type` is the struct encoding that version and `map` optionally names an exported function that projects it onto the newest shape.
+- `framed`: (optional) When embedded in another struct, length-prefix the encoding so a reader that does not understand a newer inner version still finds the fields after it. New types default to `true`. A type loaded from a `schema.json` written before framing existed keeps its unframed layout; set `framed: true` on it to migrate, which changes the bytes it writes.
+
 ### API
 
 Hyperschema lets you define structs and aliases. All [`compact-encoding`](https://github.com/holepunchto/compact-encoding) types are available as built-in types.
