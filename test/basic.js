@@ -1515,6 +1515,19 @@ test('a newly declared versioned type is framed and records it', async (t) => {
   t.is(schema.json.schema[1].framed, true)
 })
 
+test('a newly declared versioned type can disable framing and records it', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => define(schema, false))
+
+  t.is(schema.json.schema[1].framed, false)
+  t.is(encodeOuter(schema.module).byteLength, 1 + 2 + 32)
+
+  // the flag survives a reload
+  await schema.rebuild(define)
+  t.is(schema.json.schema[1].framed, false)
+})
+
 test('a schema written before framing keeps its layout', async (t) => {
   const schema = await createTestSchema(t)
 
@@ -1557,7 +1570,7 @@ function encodeOuter(module) {
   })
 }
 
-function define(schema, framed) {
+function define(schema, framed = null) {
   const ns = schema.namespace('test')
 
   ns.register({
@@ -1567,7 +1580,7 @@ function define(schema, framed) {
 
   ns.register({
     name: 'inner',
-    ...(framed ? { framed } : {}),
+    ...(framed == null ? {} : { framed }),
     versions: [{ version: 1, type: '@test/inner-v1' }]
   })
 
