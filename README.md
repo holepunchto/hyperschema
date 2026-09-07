@@ -133,7 +133,7 @@ All struct definitions must take the following form:
 
 - `name`: (required) The name of the versioned type.
 - `versions`: (required) An array of `{ version, type, map }`, where `type` is the struct encoding that version and `map` optionally names an exported function that projects it onto the newest shape.
-- `framed`: (optional) When embedded in another struct, length-prefix the encoding so a reader that does not understand a newer inner version still finds the fields after it. New types default to `true`. A type loaded from a `schema.json` written before framing existed keeps its unframed layout; set `framed: true` on it to migrate, which changes the bytes it writes.
+- `framed`: (optional) When embedded in another struct, length-prefix the encoding for the inner version struct if it is not compact. New types default to `true`. A type loaded from a `schema.json` written before framing existed keeps its unframed layout; set `framed: true` on it to migrate, which changes the bytes it writes.
 
 ### API
 
