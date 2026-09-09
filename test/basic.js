@@ -305,6 +305,60 @@ test('flagsPosition', async (t) => {
   }
 })
 
+test('fixed buffers', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        {
+          name: 'field1',
+          type: 'fixed8',
+          required: true
+        },
+        {
+          name: 'field2',
+          type: 'fixed16',
+          required: true
+        },
+        {
+          name: 'field3',
+          type: 'fixed24',
+          required: true
+        },
+        {
+          name: 'field4',
+          type: 'fixed32',
+          required: true
+        },
+        {
+          name: 'field5',
+          type: 'fixed64',
+          required: true
+        }
+      ]
+    })
+  })
+
+  {
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const expected = {
+      field1: Buffer.alloc(8).fill('a'),
+      field2: Buffer.alloc(16).fill('b'),
+      field3: Buffer.alloc(24).fill('c'),
+      field4: Buffer.alloc(32).fill('d'),
+      field5: Buffer.alloc(64).fill('e')
+    }
+    t.alike(
+      c.decode(enc, c.encode(enc, expected)),
+      expected,
+      '(en/de)code fixed8, fixed16, fixed24, fixed32, fixed64'
+    )
+  }
+})
+
 test('error if inlined struct isnt compact', async (t) => {
   const schema = await createTestSchema(t)
 
