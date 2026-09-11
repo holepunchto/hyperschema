@@ -1665,3 +1665,29 @@ test('array of bools - never framed', async (t) => {
   t.is(buf.toString('hex'), '03050202', 'no framing overhead on either field')
   t.alike(c.decode(enc, buf), expected)
 })
+
+test('array of bools - referenced before it is registered', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'holder',
+      fields: [{ name: 'flags', type: '@test/flag-array', required: true }]
+    })
+
+    ns.register({
+      name: 'flag-array',
+      array: true,
+      type: 'bool'
+    })
+  })
+
+  const enc = schema.module.resolveStruct('@test/holder')
+  const expected = { flags: [true, false, true] }
+  const buf = c.encode(enc, expected)
+
+  t.is(buf.toString('hex'), '0305')
+  t.alike(c.decode(enc, buf), expected)
+})
