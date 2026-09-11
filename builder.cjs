@@ -5,7 +5,8 @@ const {
   SupportedTypes,
   BitwiseNumericTypes,
   getBitwiseSize,
-  getDefaultValue
+  getDefaultValue,
+  getOptimizedEncoder
 } = require('./lib/types.js')
 
 const generateCode = require('./lib/codegen')
@@ -249,6 +250,7 @@ class StructField {
     if (this.type === null) {
       throw new Error(`Cannot resolve field type ${this.description.type} in ${this.name}`)
     }
+    this.optimizedEncoder = getOptimizedEncoder(this)
   }
 
   get framed() {
@@ -287,6 +289,7 @@ class Array extends ResolvedType {
 
     this.type = hyperschema.resolve(description.type)
     this.framed = this.type.frameable()
+    this.optimizedEncoder = getOptimizedEncoder(this)
 
     // a bitwise uint has no standalone encoding, it only exists inside a struct's flags
     if (BitwiseNumericTypes.has(description.type)) {
