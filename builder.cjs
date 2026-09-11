@@ -385,6 +385,10 @@ class VersionedType extends ResolvedType {
     }
   }
 
+  frameable() {
+    return this.framed
+  }
+
   require(filename) {
     return p.relative(p.join(filename, '..'), p.resolve(this.filename)).replaceAll('\\', '/')
   }
