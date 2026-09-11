@@ -123,6 +123,7 @@ All struct definitions must take the following form:
 - `record`: (optional - default `false`) Is the field a record of key/values
 - `useDefault`: (optional - default `true`) If there is no value, use a default for the type
 - `inline`: (optional) Whether to recursively inline the field using the parent struct's flags bitfield for skipping non-required fields. This can make the encoded size smaller. A field's type must be set as `compact` to be inlined.
+- `constant`: (optional) A literal (`bool`, integer, `string` or `null`) that the decoder always emits for this field. A constant field is never encoded, takes no flag bit and adding one does not bump the schema version. Useful for runtime-only properties the caller overwrites after decoding (a seq, a cached value) so the decoded object has a stable shape. Cannot be combined with `required`, `array` or `inline`.
 
 #### Alias Definition
 

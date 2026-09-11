@@ -189,9 +189,23 @@ class StructField {
     this.inline = this.description.inline
     this.useDefault = this.description.useDefault !== false
 
+    // a constant field is never encoded, decode always yields the literal
+    this.isConstant = this.description.constant !== undefined
+    this.constant = this.isConstant ? this.description.constant : undefined
+
     this.position = position
     this.struct = struct
     this.flag = flag
+
+    if (this.isConstant) {
+      const tag = `${this.struct.fqn}/${this.name}`
+      if (!isConstantValue(this.constant)) {
+        throw new Error(`Constant must be a bool, integer, string or null: ${tag}`)
+      }
+      if (this.required || this.description.array || this.inline || this.description.record) {
+        throw new Error(`Constant cannot be required, array, inline or record: ${tag}`)
+      }
+    }
 
     this.type = hyperschema.resolve(description.type) || null
     this.typeFqn = this.type ? this.type.fqn : description.type
@@ -214,9 +228,12 @@ class StructField {
           throw new Error(`Field was modified: ${tag}`)
         } else if (prevField.required !== this.required) {
           throw new Error(`A required field must always stay required: ${tag}`)
+        } else if (prevField.isConstant !== this.isConstant) {
+          throw new Error(`A constant field must always stay constant: ${tag}`)
         }
         this.version = prevField.version
-      } else if (!this.struct.derived) {
+      } else if (!this.struct.derived && !this.isConstant) {
+        // constants are not on the wire, adding one is not a version bump
         hyperschema.maybeBumpVersion()
         this.version = hyperschema.version
       }
@@ -245,10 +262,17 @@ class StructField {
       array: this.description.array,
       record: this.description.record,
       inline: this.description.inline,
+      constant: this.constant,
       type: this.typeFqn,
       version: this.version
     }
   }
+}
+
+function isConstantValue(value) {
+  if (value === null) return true
+  const t = typeof value
+  return t === 'boolean' || t === 'string' || (t === 'number' && Number.isInteger(value))
 }
 
 class Array extends ResolvedType {
@@ -436,8 +460,8 @@ class Struct extends ResolvedType {
     }
 
     if (this.existing) {
-      const oldLength = this.existing.fields.length
-      const newLength = this.description.fields.length
+      const oldLength = this.existing.fields.filter((f) => !f.isConstant).length
+      const newLength = this.description.fields.filter((f) => f.constant === undefined).length
       if (oldLength > newLength) {
         throw new Error(`A field was removed: ${this.fqn}`)
       } else if (this.compact && oldLength !== newLength) {
@@ -470,7 +494,9 @@ class Struct extends ResolvedType {
           fieldDescription.required = false
         }
       }
-      const flag = !fieldDescription.required ? (this.maxFlag === 0 ? 1 : this.maxFlag * 2) : 0
+      const constant = fieldDescription.constant !== undefined
+      const optional = !fieldDescription.required && !constant
+      const flag = optional ? (this.maxFlag === 0 ? 1 : this.maxFlag * 2) : 0
       const field = new StructField(hyperschema, this, i, flag, fieldDescription)
 
       if (fieldDescription.inline) {
@@ -486,11 +512,11 @@ class Struct extends ResolvedType {
       this.fields.push(field)
       this.fieldsByName.set(field.name, field)
 
-      if (!fieldDescription.required) {
+      if (optional) {
         this.optionals.push(field)
         this.maxFlag = flag
       }
-      if (indexBeforeOptional === -1 && (!fieldDescription.required || fieldDescription.inline)) {
+      if (indexBeforeOptional === -1 && (optional || fieldDescription.inline)) {
         indexBeforeOptional = i
         if (this.flagsPosition === -1) {
           this.flagsPosition = i
@@ -506,7 +532,7 @@ class Struct extends ResolvedType {
   }
 
   _resolveField(field, flag, shift) {
-    const bitwise = getBitwiseSize(field.type.fqn)
+    const bitwise = field.isConstant ? 0 : getBitwiseSize(field.type.fqn)
     const entry = {
       bits: bitwise ? bitwise - 1 : 0, // -1 cause its optional always
       field,
@@ -515,7 +541,7 @@ class Struct extends ResolvedType {
       fields: []
     }
 
-    if (!field.type.isStruct || !field.inline) {
+    if (!field.type.isStruct || !field.inline || field.isConstant) {
       return entry
     }
 
@@ -553,8 +579,7 @@ class Struct extends ResolvedType {
       f.flag *= maxIncrease
       if (f.inline && f.type.isStruct) f.type.isInlined = true
 
-      const b = f.required ? bits : bits + 1
-      if (!f.required) {
+      if (!f.required && !f.isConstant) {
         flag = nextFlag(flag, 1)
         bits++
       }
