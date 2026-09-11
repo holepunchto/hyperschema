@@ -1741,6 +1741,13 @@ test('dont frame compact version of versioned struct', async (t) => {
       },
       'encode w/ 1 -> decode w/ 2'
     )
+
+    // Show /inner doesnt frame v1
+    const inner = gen2.resolveStruct('@test/inner')
+    const encoded = c.encode(inner, { version: 1, count: 7, label: 'a' })
+    // optional fields (label), so there is flags byte:
+    // 01 (version) 07 (count) 01 (flags) 01 61 (string)
+    t.is(encoded.toString('hex'), '0107010161', 'no frame length')
   }
 
   function define(schema, extra) {
