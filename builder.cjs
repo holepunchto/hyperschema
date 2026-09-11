@@ -359,7 +359,8 @@ class VersionedType extends ResolvedType {
       }
     })
 
-    this.framed = true
+    // a schema.json written before framing existed has no flag: keep its layout
+    this.framed = description.framed ?? existing?.framed ?? !hyperschema.initializing
 
     if (!description.name) {
       throw new Error(`VersionedType ${this.fqn}: required 'name' definition is missing`)
@@ -381,7 +382,6 @@ class VersionedType extends ResolvedType {
       if (!v.type) {
         throw new Error(`VersionedType ${this.fqn}: cannot resolve version type ${v.typeName}`)
       }
-      v.type.expectsVersion = true
     }
   }
 
@@ -393,6 +393,7 @@ class VersionedType extends ResolvedType {
     return {
       name: this.name,
       namespace: this.namespace,
+      framed: this.framed,
       versions: this.versions.map((version) => ({
         type: version.typeName,
         map: version.map,
@@ -409,7 +410,6 @@ class Struct extends ResolvedType {
     this.isInlined = false
 
     this.default = null
-    this.expectsVersion = false
 
     this.fields = []
     this.fieldsByName = new Map()
