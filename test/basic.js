@@ -2071,6 +2071,53 @@ test('constant field - no version bump, allowed on compact structs, keeps fast f
   t.is(c.encode(compact, { a: 5 }).byteLength, 1)
 })
 
+test('constant field - flagsPosition can point at a constant', async (t) => {
+  const fields = [
+    { name: 'k', type: 'uint', constant: 7 },
+    { name: 'a', type: 'uint', required: true },
+    { name: 'b', type: 'uint' }
+  ]
+
+  const value = { a: 1, b: 2 }
+  const expected = { k: 7, a: 1, b: 2 }
+
+  for (const flagsPosition of [0, 1, 2]) {
+    const schema = await createTestSchema(t)
+
+    await schema.rebuild((schema) => {
+      schema.namespace('test').register({ name: 'test-struct', flagsPosition, fields })
+    })
+
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const buf = c.encode(enc, value)
+
+    t.is(buf.byteLength, 3, `flagsPosition ${flagsPosition} encodes the flags`)
+    t.alike(c.decode(enc, buf), expected, `flagsPosition ${flagsPosition} decodes the flags`)
+  }
+
+  // same for a constant in the middle and a compact struct with a bool in the flags
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    schema.namespace('test').register({
+      name: 'test-struct',
+      compact: true,
+      flagsPosition: 0,
+      fields: [
+        { name: 'a', type: 'uint', required: true },
+        { name: 'k', type: 'string', constant: 'x' },
+        { name: 'b', type: 'bool' }
+      ]
+    })
+  })
+
+  const enc = schema.module.resolveStruct('@test/test-struct')
+  const buf = c.encode(enc, { a: 1, b: true })
+
+  t.alike(buf, Buffer.from([1, 1]))
+  t.alike(c.decode(enc, buf), { a: 1, k: 'x', b: true })
+})
+
 test('constant field - validation', async (t) => {
   const register = (schema, field) =>
     schema.namespace('test').register({
