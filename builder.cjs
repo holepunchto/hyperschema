@@ -547,7 +547,7 @@ class Struct extends ResolvedType {
 
     const bits = entry.bits
     for (const f of field.type.fields) {
-      if (!f.required) {
+      if (!f.required && !f.isConstant) {
         entry.bits++
         flag = nextFlag(flag, 1)
       }

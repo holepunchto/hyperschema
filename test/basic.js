@@ -2112,3 +2112,42 @@ test('constant field - validation', async (t) => {
     )
   }
 })
+
+test('constant field - inside an inlined compact struct takes no bits', async (t) => {
+  const build = (withConstant) => async (schema) => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'inner',
+      compact: true,
+      fields: [
+        { name: 'x', type: 'uint' },
+        ...(withConstant ? [{ name: 'seq', type: 'uint', constant: 0 }] : []),
+        { name: 'y', type: 'uint' }
+      ]
+    })
+    ns.register({
+      name: 'outer',
+      compact: true,
+      fields: [
+        { name: 'kind', type: 'uint3' },
+        { name: 'inner', type: '@test/inner', inline: true },
+        { name: 'tail', type: 'uint' }
+      ]
+    })
+  }
+
+  const a = await createTestSchema(t)
+  const b = await createTestSchema(t)
+  await a.rebuild(build(true))
+  await b.rebuild(build(false))
+
+  const withConstant = a.module.resolveStruct('@test/outer')
+  const plain = b.module.resolveStruct('@test/outer')
+
+  const value = { kind: 5, inner: { x: 1, y: 2 }, tail: 3 }
+  const buf = c.encode(withConstant, value)
+
+  t.alike(buf, c.encode(plain, value), 'same bytes as without the constant')
+  t.alike(c.decode(withConstant, buf), { kind: 5, inner: { x: 1, seq: 0, y: 2 }, tail: 3 })
+  t.alike(c.decode(plain, buf), value)
+})
