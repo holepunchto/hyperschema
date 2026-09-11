@@ -1,5 +1,6 @@
 const test = require('brittle')
 const c = require('compact-encoding')
+const fs = require('fs')
 const path = require('path')
 
 const Hyperschema = require('../builder.cjs')
@@ -1616,6 +1617,586 @@ test('array of bools - bitwise uints cannot be arrays', async (t) => {
       }),
     /cannot be used as an array/
   )
+})
+
+test('embedded versioned struct stays aligned when a later generation appends an optional field', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => define(schema, false))
+  const gen1 = schema.module
+
+  await schema.rebuild((schema) => define(schema, true))
+  const gen2 = schema.module
+
+  const tail = Buffer.alloc(32, 7)
+  const value = {
+    inner: { version: 1, count: 1, label: 'a', extra: 'b'.repeat(64) },
+    tail
+  }
+
+  const encoded = c.encode(gen2.resolveStruct('@test/outer'), value)
+  const decoded = c.decode(gen1.resolveStruct('@test/outer'), encoded)
+
+  t.alike(decoded.inner, { version: 1, count: 1, label: 'a' })
+  t.alike(decoded.tail, tail)
+
+  function define(schema, extra) {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'inner-v1',
+      fields: [
+        { name: 'count', type: 'uint', required: true },
+        { name: 'label', type: 'string' },
+        ...(extra ? [{ name: 'extra', type: 'string' }] : [])
+      ]
+    })
+
+    ns.register({
+      name: 'inner',
+      versions: [{ version: 1, type: '@test/inner-v1' }]
+    })
+
+    ns.register({
+      name: 'outer',
+      fields: [
+        { name: 'inner', type: '@test/inner' },
+        { name: 'tail', type: 'fixed32', required: true }
+      ]
+    })
+  }
+})
+
+test('embedded versioned struct stays aligned when a later generation adds its first optional field', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => define(schema, false))
+  const gen1 = schema.module
+
+  await schema.rebuild((schema) => define(schema, true))
+  const gen2 = schema.module
+
+  const tail = Buffer.alloc(32, 9)
+
+  // the new field is never set, but the flags byte it introduces still shifts an unframed embed
+  const encoded = c.encode(gen2.resolveStruct('@test/outer'), {
+    inner: { version: 1, count: 3 },
+    tail
+  })
+  const decoded = c.decode(gen1.resolveStruct('@test/outer'), encoded)
+
+  t.alike(decoded.inner, { version: 1, count: 3 })
+  t.alike(decoded.tail, tail)
+
+  function define(schema, optional) {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'inner-v1',
+      fields: [
+        { name: 'count', type: 'uint', required: true },
+        ...(optional ? [{ name: 'label', type: 'string' }] : [])
+      ]
+    })
+
+    ns.register({
+      name: 'inner',
+      versions: [{ version: 1, type: '@test/inner-v1' }]
+    })
+
+    ns.register({
+      name: 'outer',
+      fields: [
+        { name: 'inner', type: '@test/inner' },
+        { name: 'tail', type: 'fixed32', required: true }
+      ]
+    })
+  }
+})
+
+test('embedded versioned struct round trips within and across generations', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => define(schema, false))
+  const gen1 = schema.module
+
+  await schema.rebuild((schema) => define(schema, true))
+  const gen2 = schema.module
+
+  const enc1 = gen1.resolveStruct('@test/outer')
+  const enc2 = gen2.resolveStruct('@test/outer')
+  const tail = Buffer.alloc(32, 4)
+
+  {
+    const value = { inner: { version: 1, count: 7, label: 'a', extra: 'e' }, tail }
+    t.alike(c.decode(enc2, c.encode(enc2, value)), value)
+  }
+
+  {
+    const value = { inner: { version: 1, count: 7, label: 'a' }, tail }
+    t.alike(c.decode(enc2, c.encode(enc1, value)), {
+      inner: { version: 1, count: 7, label: 'a', extra: null },
+      tail
+    })
+  }
+
+  function define(schema, extra) {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'inner-v1',
+      fields: [
+        { name: 'count', type: 'uint', required: true },
+        { name: 'label', type: 'string' },
+        ...(extra ? [{ name: 'extra', type: 'string' }] : [])
+      ]
+    })
+
+    ns.register({
+      name: 'inner',
+      versions: [{ version: 1, type: '@test/inner-v1' }]
+    })
+
+    ns.register({
+      name: 'outer',
+      fields: [
+        { name: 'inner', type: '@test/inner' },
+        { name: 'tail', type: 'fixed32', required: true }
+      ]
+    })
+  }
+})
+
+test('dont frame compact version of versioned struct', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => define(schema, false))
+  const gen1 = schema.module
+
+  await schema.rebuild((schema) => define(schema, true))
+  const gen2 = schema.module
+
+  const enc1 = gen1.resolveStruct('@test/outer')
+  const enc2 = gen2.resolveStruct('@test/outer')
+  const tail = Buffer.alloc(32, 4)
+
+  {
+    const value = { inner: { version: 2, count: 7, label: 'a', extra: 'e' }, tail }
+    t.alike(c.decode(enc2, c.encode(enc2, value)), value, 'roundtrip on recent')
+  }
+
+  {
+    const value = { inner: { version: 1, count: 7, label: 'a' }, tail }
+    t.alike(
+      c.decode(enc2, c.encode(enc1, value)),
+      {
+        inner: { version: 1, count: 7, label: 'a' },
+        tail
+      },
+      'encode w/ 1 -> decode w/ 2'
+    )
+
+    // Show /inner doesnt frame v1
+    const inner = gen2.resolveStruct('@test/inner')
+    const encoded = c.encode(inner, { version: 1, count: 7, label: 'a' })
+    // optional fields (label), so there is flags byte:
+    // 01 (version) 07 (count) 01 (flags) 01 61 (string)
+    t.is(encoded.toString('hex'), '0107010161', 'no frame length')
+  }
+
+  function define(schema, extra) {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'inner-v1',
+      compact: true,
+      fields: [
+        { name: 'count', type: 'uint', required: true },
+        { name: 'label', type: 'string' }
+      ]
+    })
+
+    if (extra) {
+      ns.register({
+        name: 'inner-v2',
+        fields: [
+          { name: 'count', type: 'uint', required: true },
+          { name: 'label', type: 'string' },
+          { name: 'extra', type: 'string' }
+        ]
+      })
+    }
+
+    ns.register({
+      name: 'inner',
+      versions: [
+        { version: 1, type: '@test/inner-v1' },
+        ...(extra ? [{ version: 2, type: '@test/inner-v2' }] : [])
+      ]
+    })
+
+    ns.register({
+      name: 'outer',
+      fields: [
+        { name: 'inner', type: '@test/inner' },
+        { name: 'tail', type: 'fixed32', required: true }
+      ]
+    })
+  }
+})
+
+test('a newly declared versioned type is framed and records it', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(define)
+
+  t.is(schema.json.schema[1].framed, true)
+  t.is(encodeOuter(schema.module).byteLength, 1 + 1 + 2 + 32)
+
+  // the flag survives a reload
+  await schema.rebuild(define)
+  t.is(schema.json.schema[1].framed, true)
+})
+
+test('a newly declared versioned type can disable framing and records it', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => define(schema, false))
+
+  t.is(schema.json.schema[1].framed, false)
+  t.is(encodeOuter(schema.module).byteLength, 1 + 2 + 32)
+
+  // the flag survives a reload
+  await schema.rebuild(define)
+  t.is(schema.json.schema[1].framed, false)
+})
+
+test('a schema written before framing keeps its layout', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(define)
+  dropFramed(schema.dir)
+
+  await schema.rebuild(define)
+
+  t.is(schema.json.schema[1].framed, false)
+  t.is(encodeOuter(schema.module).byteLength, 1 + 2 + 32)
+
+  // and stays grandfathered on every later build
+  await schema.rebuild(define)
+  t.is(schema.json.schema[1].framed, false)
+})
+
+test('a grandfathered versioned type can opt in to framing', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild(define)
+  dropFramed(schema.dir)
+
+  await schema.rebuild((schema) => define(schema, true))
+
+  t.is(schema.json.schema[1].framed, true)
+  t.is(encodeOuter(schema.module).byteLength, 1 + 1 + 2 + 32)
+})
+
+function dropFramed(dir) {
+  const file = path.join(dir, 'schema.json')
+  const json = JSON.parse(fs.readFileSync(file, 'utf-8'))
+  for (const type of json.schema) delete type.framed
+  fs.writeFileSync(file, JSON.stringify(json, null, 2))
+}
+
+function encodeOuter(module) {
+  return c.encode(module.resolveStruct('@test/outer'), {
+    inner: { version: 1, count: 3 },
+    tail: Buffer.alloc(32, 1)
+  })
+}
+
+function define(schema, framed = null) {
+  const ns = schema.namespace('test')
+
+  ns.register({
+    name: 'inner-v1',
+    fields: [{ name: 'count', type: 'uint', required: true }]
+  })
+
+  ns.register({
+    name: 'inner',
+    ...(framed == null ? {} : { framed }),
+    versions: [{ version: 1, type: '@test/inner-v1' }]
+  })
+
+  ns.register({
+    name: 'outer',
+    fields: [
+      { name: 'inner', type: '@test/inner' },
+      { name: 'tail', type: 'fixed32', required: true }
+    ]
+  })
+}
+
+test('bitwise uint decodes as a masked value, not a bool', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-struct',
+      compact: true,
+      fields: [
+        {
+          name: 'kind',
+          type: 'uint3'
+        },
+        {
+          name: 'n',
+          type: 'uint'
+        }
+      ]
+    })
+  })
+
+  const enc = schema.module.resolveStruct('@test/test-struct')
+
+  for (let kind = 0; kind < 8; kind++) {
+    const expected = { kind, n: 7 }
+    t.alike(c.decode(enc, c.encode(enc, expected)), expected)
+  }
+})
+
+test('constant field - never encoded, always decoded as the literal', async (t) => {
+  const withConstants = await createTestSchema(t)
+  const withoutConstants = await createTestSchema(t)
+
+  const fields = [
+    { name: 'a', type: 'uint', required: true },
+    { name: 'b', type: 'uint' },
+    { name: 'c', type: 'string' }
+  ]
+
+  await withConstants.rebuild((schema) => {
+    schema.namespace('test').register({
+      name: 'test-struct',
+      fields: [
+        ...fields,
+        { name: 'seq', type: 'uint', constant: 0 },
+        { name: 'label', type: 'string', constant: "it's" },
+        { name: 'ok', type: 'bool', constant: true },
+        { name: 'nothing', type: 'buffer', constant: null }
+      ]
+    })
+  })
+
+  await withoutConstants.rebuild((schema) => {
+    schema.namespace('test').register({ name: 'test-struct', fields })
+  })
+
+  const enc = withConstants.module.resolveStruct('@test/test-struct')
+  const plain = withoutConstants.module.resolveStruct('@test/test-struct')
+
+  const value = { a: 1, b: 2, c: 'hello' }
+  const buf = c.encode(enc, value)
+
+  t.alike(buf, c.encode(plain, value), 'constants are not on the wire')
+  t.alike(c.decode(enc, buf), { ...value, seq: 0, label: "it's", ok: true, nothing: null })
+  t.alike(c.decode(plain, buf), value)
+
+  // whatever the caller sets on the input is ignored
+  t.alike(c.encode(enc, { ...value, seq: 99, label: 'x', ok: false, nothing: 1 }), buf)
+
+  const json = withConstants.json.schema[0].fields
+  t.is(json[3].constant, 0)
+  t.is(json[4].constant, "it's")
+  t.is(json[5].constant, true)
+  t.is(json[6].constant, null)
+  t.absent(json[0].constant)
+})
+
+test('constant field - no version bump, allowed on compact structs, keeps fast flags', async (t) => {
+  const schema = await createTestSchema(t)
+
+  const optionals = []
+  for (let i = 0; i < 7; i++) optionals.push({ name: 'o' + i, type: 'uint' })
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-struct',
+      fields: [{ name: 'a', type: 'uint', required: true }, ...optionals]
+    })
+    ns.register({
+      name: 'compact-struct',
+      compact: true,
+      fields: [{ name: 'a', type: 'uint', required: true }]
+    })
+  })
+
+  t.is(schema.json.version, 1)
+
+  const before = fs.readFileSync(path.join(schema.dir, 'index.js'), 'utf8')
+  t.ok(before.includes('// max flag is 64 so always one byte'))
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'test-struct',
+      fields: [
+        { name: 'a', type: 'uint', required: true },
+        ...optionals,
+        { name: 'seq', type: 'uint', constant: 0 }
+      ]
+    })
+    ns.register({
+      name: 'compact-struct',
+      compact: true,
+      fields: [
+        { name: 'a', type: 'uint', required: true },
+        { name: 'seq', type: 'uint', constant: 0 }
+      ]
+    })
+  })
+
+  t.is(schema.json.version, 1, 'adding a constant is not a wire change')
+
+  const after = fs.readFileSync(path.join(schema.dir, 'index.js'), 'utf8')
+  t.ok(after.includes('// max flag is 64 so always one byte'), 'constant took no flag bit')
+
+  const enc = schema.module.resolveStruct('@test/test-struct')
+  const value = { a: 1, o0: 0, o1: 0, o2: 0, o3: 0, o4: 0, o5: 0, o6: 1 }
+  t.alike(c.decode(enc, c.encode(enc, value)), { ...value, seq: 0 })
+
+  const compact = schema.module.resolveStruct('@test/compact-struct')
+  t.alike(c.decode(compact, c.encode(compact, { a: 5 })), { a: 5, seq: 0 })
+  t.is(c.encode(compact, { a: 5 }).byteLength, 1)
+})
+
+test('constant field - flagsPosition can point at a constant', async (t) => {
+  const fields = [
+    { name: 'k', type: 'uint', constant: 7 },
+    { name: 'a', type: 'uint', required: true },
+    { name: 'b', type: 'uint' }
+  ]
+
+  const value = { a: 1, b: 2 }
+  const expected = { k: 7, a: 1, b: 2 }
+
+  for (const flagsPosition of [0, 1, 2]) {
+    const schema = await createTestSchema(t)
+
+    await schema.rebuild((schema) => {
+      schema.namespace('test').register({ name: 'test-struct', flagsPosition, fields })
+    })
+
+    const enc = schema.module.resolveStruct('@test/test-struct')
+    const buf = c.encode(enc, value)
+
+    t.is(buf.byteLength, 3, `flagsPosition ${flagsPosition} encodes the flags`)
+    t.alike(c.decode(enc, buf), expected, `flagsPosition ${flagsPosition} decodes the flags`)
+  }
+
+  // same for a constant in the middle and a compact struct with a bool in the flags
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    schema.namespace('test').register({
+      name: 'test-struct',
+      compact: true,
+      flagsPosition: 0,
+      fields: [
+        { name: 'a', type: 'uint', required: true },
+        { name: 'k', type: 'string', constant: 'x' },
+        { name: 'b', type: 'bool' }
+      ]
+    })
+  })
+
+  const enc = schema.module.resolveStruct('@test/test-struct')
+  const buf = c.encode(enc, { a: 1, b: true })
+
+  t.alike(buf, Buffer.from([1, 1]))
+  t.alike(c.decode(enc, buf), { a: 1, k: 'x', b: true })
+})
+
+test('constant field - validation', async (t) => {
+  const register = (schema, field) =>
+    schema.namespace('test').register({
+      name: 'test-struct',
+      fields: [{ name: 'a', type: 'uint', required: true }, field]
+    })
+
+  for (const constant of [1.5, {}, [], undefined]) {
+    const schema = await createTestSchema(t)
+    const field = { name: 'x', type: 'uint', constant }
+    if (constant === undefined) {
+      // no constant at all is just a regular field
+      await schema.rebuild((schema) => register(schema, field))
+      continue
+    }
+    await t.exception(
+      () => schema.rebuild((schema) => register(schema, field)),
+      /Constant must be a bool, integer, string or null/
+    )
+  }
+
+  for (const extra of [{ required: true }, { array: true }]) {
+    const schema = await createTestSchema(t)
+    await t.exception(
+      () =>
+        schema.rebuild((schema) =>
+          register(schema, { name: 'x', type: 'uint', constant: 0, ...extra })
+        ),
+      /Constant cannot be required, array, inline or record/
+    )
+  }
+
+  {
+    const schema = await createTestSchema(t)
+    await schema.rebuild((schema) => register(schema, { name: 'x', type: 'uint', constant: 0 }))
+    await t.exception(
+      () => schema.rebuild((schema) => register(schema, { name: 'x', type: 'uint' })),
+      /A constant field must always stay constant/
+    )
+  }
+})
+
+test('constant field - inside an inlined compact struct takes no bits', async (t) => {
+  const build = (withConstant) => async (schema) => {
+    const ns = schema.namespace('test')
+    ns.register({
+      name: 'inner',
+      compact: true,
+      fields: [
+        { name: 'x', type: 'uint' },
+        ...(withConstant ? [{ name: 'seq', type: 'uint', constant: 0 }] : []),
+        { name: 'y', type: 'uint' }
+      ]
+    })
+    ns.register({
+      name: 'outer',
+      compact: true,
+      fields: [
+        { name: 'kind', type: 'uint3' },
+        { name: 'inner', type: '@test/inner', inline: true },
+        { name: 'tail', type: 'uint' }
+      ]
+    })
+  }
+
+  const a = await createTestSchema(t)
+  const b = await createTestSchema(t)
+  await a.rebuild(build(true))
+  await b.rebuild(build(false))
+
+  const withConstant = a.module.resolveStruct('@test/outer')
+  const plain = b.module.resolveStruct('@test/outer')
+
+  const value = { kind: 5, inner: { x: 1, y: 2 }, tail: 3 }
+  const buf = c.encode(withConstant, value)
+
+  t.alike(buf, c.encode(plain, value), 'same bytes as without the constant')
+  t.alike(c.decode(withConstant, buf), { kind: 5, inner: { x: 1, seq: 0, y: 2 }, tail: 3 })
+  t.alike(c.decode(plain, buf), value)
 })
 
 test('array of bools - never framed', async (t) => {

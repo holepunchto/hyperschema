@@ -123,11 +123,18 @@ All struct definitions must take the following form:
 - `record`: (optional - default `false`) Is the field a record of key/values
 - `useDefault`: (optional - default `true`) If there is no value, use a default for the type
 - `inline`: (optional) Whether to recursively inline the field using the parent struct's flags bitfield for skipping non-required fields. This can make the encoded size smaller. A field's type must be set as `compact` to be inlined.
+- `constant`: (optional) A literal (`bool`, integer, `string` or `null`) that the decoder always emits for this field. A constant field is never encoded, takes no flag bit and adding one does not bump the schema version. Useful for runtime-only properties the caller overwrites after decoding (a seq, a cached value) so the decoded object has a stable shape. Cannot be combined with `required`, `array` or `inline`.
 
 #### Alias Definition
 
 - `name`: (required) The name of the alias.
 - `type`: (required) Either a built-in type (i.e. `uint`) or a fully-qualified user-defined type (i.e. `@namespace/another-struct`)
+
+#### Versioned Type Definition
+
+- `name`: (required) The name of the versioned type.
+- `versions`: (required) An array of `{ version, type, map }`, where `type` is the struct encoding that version and `map` optionally names an exported function that projects it onto the newest shape.
+- `framed`: (optional) When embedded in another struct, length-prefix the encoding for the inner version struct if it is not compact. New types default to `true`. A type loaded from a `schema.json` written before framing existed keeps its unframed layout; set `framed: true` on it to migrate, which changes the bytes it writes.
 
 ### API
 

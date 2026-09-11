@@ -65,6 +65,7 @@ declare namespace Hyperschema {
     required?: boolean
     array?: boolean
     inline?: boolean
+    constant?: boolean | number | string | null
     useDefault?: boolean
     version?: number
   }
