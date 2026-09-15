@@ -2198,3 +2198,77 @@ test('constant field - inside an inlined compact struct takes no bits', async (t
   t.alike(c.decode(withConstant, buf), { kind: 5, inner: { x: 1, seq: 0, y: 2 }, tail: 3 })
   t.alike(c.decode(plain, buf), value)
 })
+
+test('array of bools - never framed', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'flag-array',
+      array: true,
+      type: 'bool'
+    })
+
+    ns.register({
+      name: 'indirect',
+      alias: '@test/flag-array'
+    })
+
+    // exercises both paths that could wrap an encoder in c.frame(): a field
+    // whose type resolves (through an alias) to a bool-array struct, and a
+    // field that is itself declared as an array of bools
+    ns.register({
+      name: 'has-flag-array',
+      fields: [
+        {
+          name: 'foo',
+          type: '@test/indirect',
+          required: true
+        },
+        {
+          name: 'bar',
+          type: 'bool',
+          array: true,
+          required: true
+        }
+      ]
+    })
+  })
+
+  const enc = schema.module.resolveStruct('@test/has-flag-array')
+  const expected = { foo: [true, false, true], bar: [false, true] }
+  const buf = c.encode(enc, expected)
+
+  // no flags bytes so: 03 05 (foo) 02 02 (bar)
+  // No framing bytes
+  t.is(buf.toString('hex'), '03050202', 'no framing overhead on either field')
+  t.alike(c.decode(enc, buf), expected)
+})
+
+test('array of bools - referenced before it is registered', async (t) => {
+  const schema = await createTestSchema(t)
+
+  await schema.rebuild((schema) => {
+    const ns = schema.namespace('test')
+
+    ns.register({
+      name: 'holder',
+      fields: [{ name: 'flags', type: '@test/flag-array', required: true }]
+    })
+
+    ns.register({
+      name: 'flag-array',
+      array: true,
+      type: 'bool'
+    })
+  })
+
+  const enc = schema.module.resolveStruct('@test/holder')
+  const expected = { flags: [true, false, true] }
+  const buf = c.encode(enc, expected)
+
+  t.is(buf.toString('hex'), '0305')
+  t.alike(c.decode(enc, buf), expected)
+})
