@@ -406,6 +406,7 @@ class VersionedType extends ResolvedType {
       if (!v.type) {
         throw new Error(`VersionedType ${this.fqn}: cannot resolve version type ${v.typeName}`)
       }
+      v.type.expectsVersion = true
     }
   }
 
@@ -434,6 +435,7 @@ class Struct extends ResolvedType {
     this.isInlined = false
 
     this.default = null
+    this.expectsVersion = false
 
     this.fields = []
     this.fieldsByName = new Map()
